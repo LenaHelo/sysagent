@@ -5,7 +5,23 @@ from typing import Optional
 
 def extract_man_text(command: str, section: str) -> str:
     """
-    Extracts the raw text from a Linux man page, stripping terminal formatting.
+    Extracts the raw text from a Linux man page and removes terminal formatting.
+    
+    This acts as the "Reader" in the RAG ingestion pipeline. It calls the system's `man` 
+    command and forces UTF-8 plain text output. Since groff (the man page formatter) 
+    uses raw terminal control characters to simulate bolding and underlining, this 
+    function performs regex passes to strip backspace overstriking and ANSI color 
+    codes, returning clean English text suitable for vector embedding.
+
+    Args:
+        command (str): The name of the command to retrieve (e.g., "ls").
+        section (str): The manual section where the command lives (e.g., "1").
+
+    Returns:
+        str: The clean, unformatted strings of the man page contents.
+        
+    Raises:
+        ValueError: If the command does not have a manual entry in the specified section.
     """
     args = ["man", "-Tutf8", section, command]
     
@@ -36,7 +52,17 @@ def extract_man_text(command: str, section: str) -> str:
 def get_man_pages_in_section(section: str) -> list[str]:
     """
     Finds all available man pages for a given section by scanning standard directories.
-    Returns a list of command names (e.g., ['ls', 'grep']).
+    
+    This acts as the "Scout" in the RAG ingestion pipeline. It does not read file contents;
+    it simply walks the standard Linux man paths (/usr/share/man/ and /usr/local/share/man/)
+    to determine which commands are installed and available for indexing. It strips the 
+    file extensions (e.g., 'dmesg.8.gz' -> 'dmesg') and deduplicates the results.
+
+    Args:
+        section (str): The manual section to scan (e.g., "8").
+
+    Returns:
+        list[str]: A sorted list of command names available in that section.
     """
     standard_paths = [
         f"/usr/share/man/man{section}",
