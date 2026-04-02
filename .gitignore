@@ -1,0 +1,18 @@
+# Environments
+.env
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+
+# Local DBs / Artifacts
+chroma_db/
