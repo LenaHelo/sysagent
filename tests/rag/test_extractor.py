@@ -5,6 +5,7 @@ from sysagent.rag.extractor import extract_man_text, get_man_pages_in_section
 def test_extract_returns_nonempty_string():
     """
     Validates that calling man -Tutf8 on a known command returns content.
+    ls(1) is available on every Linux system without exception.
     """
     result = extract_man_text("ls", "1")
     assert isinstance(result, str)
@@ -16,8 +17,9 @@ def test_extract_has_no_terminal_formatting():
     Validates that the regex cleanup removes backspace overstriking and ANSI codes.
     Backspace characters (\x08) are used for bold/underline in raw groff output.
     ANSI escape codes (\x1b) are used for color in some terminal-rendered man pages.
+    Uses ls(1) which is universally available.
     """
-    result = extract_man_text("dmesg", "8")
+    result = extract_man_text("ls", "1")
     assert "\x08" not in result, "Backspace overstriking was not stripped"
     assert "\x1b" not in result, "ANSI escape codes were not stripped"
 
@@ -25,10 +27,10 @@ def test_extract_has_no_terminal_formatting():
 def test_extract_contains_expected_content():
     """
     Validates that the extracted content meaningfully represents the man page.
-    We check for the word 'dmesg' appearing in the dmesg(8) man page output.
+    We check for the word 'ls' appearing in the ls(1) man page output.
     """
-    result = extract_man_text("dmesg", "8")
-    assert "dmesg" in result.lower()
+    result = extract_man_text("ls", "1")
+    assert "ls" in result.lower()
 
 
 def test_get_man_pages_in_section_returns_list():
@@ -42,10 +44,12 @@ def test_get_man_pages_in_section_returns_list():
 
 def test_get_man_pages_in_section_contains_known_command():
     """
-    Validates that dmesg, which is always present on a Linux system, is found in section 8.
+    Validates that mount(8) — a standard admin tool present on all Debian/Ubuntu systems
+    is found in section 8. Note: dmesg appears in section 1 on Ubuntu/Debian,
+    NOT section 8 (distro-specific packaging decision by util-linux maintainers).
     """
     result = get_man_pages_in_section("8")
-    assert "dmesg" in result
+    assert "mount" in result
 
 
 def test_extract_raises_on_invalid_command():
