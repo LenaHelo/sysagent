@@ -27,9 +27,13 @@ def test_extract_has_no_terminal_formatting():
 def test_extract_contains_expected_content():
     """
     Validates that the extracted content meaningfully represents the man page.
-    We check for the word 'ls' appearing in the ls(1) man page output.
+    We check for standard structural headers (NAME, SYNOPSIS, DESCRIPTION) to prove
+    the man page was read correctly and not garbled.
     """
     result = extract_man_text("ls", "1")
+    assert "NAME" in result, "Standard man page header 'NAME' is missing"
+    assert "SYNOPSIS" in result, "Standard man page header 'SYNOPSIS' is missing"
+    assert "DESCRIPTION" in result, "Standard man page header 'DESCRIPTION' is missing"
     assert "ls" in result.lower()
 
 

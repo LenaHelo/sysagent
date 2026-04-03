@@ -40,14 +40,41 @@ def extract_man_text(command: str, section: str) -> str:
 
     # Strip backspace overstriking (e.g., '_\bH' or 'H\bH' used for bold/underline)
     clean_text = re.sub(r'.\x08', '', raw_text)
-    
+
     # Strip ANSI escape codes
     clean_text = re.sub(r'\x1b\[[0-9;]*[mK]', '', clean_text)
-    
-    # Strip extreme whitespace padding while preserving newlines
-    clean_text = "\n".join(line.rstrip() for line in clean_text.splitlines())
-    
-    return clean_text.strip()
+
+    # Strip man page header/footer lines.
+    # These are repeated decorative lines like: "LS(1)   User Commands   LS(1)"
+    # They always contain the command name in parentheses and appear at the top and bottom
+    # of each paginated block. They carry zero semantic value for embedding.
+    header_footer_pattern = re.compile(
+        r'^\S+\(\d+\)\s+.+\s+\S+\(\d+\)\s*$'
+    )
+
+    lines = clean_text.splitlines()
+    cleaned_lines = []
+    blank_run = 0
+
+    for line in lines:
+        # Skip header/footer lines entirely
+        if header_footer_pattern.match(line):
+            continue
+
+        # Strip leading indentation (page-level whitespace — not semantic)
+        # and normalize internal multiple spaces to a single space
+        stripped = re.sub(r' {2,}', ' ', line.lstrip())
+
+        # Collapse runs of blank lines: allow at most 1 consecutive blank line
+        if stripped == "":
+            blank_run += 1
+            if blank_run <= 1:
+                cleaned_lines.append("")
+        else:
+            blank_run = 0
+            cleaned_lines.append(stripped)
+
+    return "\n".join(cleaned_lines).strip()
 
 def get_man_pages_in_section(section: str) -> list[str]:
     """
