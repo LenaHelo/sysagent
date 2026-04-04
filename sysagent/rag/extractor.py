@@ -52,26 +52,43 @@ def extract_man_text(command: str, section: str) -> str:
         r'^\S+\(\d+\)\s+.+\s+\S+\(\d+\)\s*$'
     )
 
+    # Section headers are ALL CAPS lines (e.g. NAME, SYNOPSIS, OPTIONS).
+    # We use this to: (1) truncate low-value tail sections, and (2) control blank lines.
+    section_header_pattern = re.compile(r'^[A-Z][A-Z\s]+$')
+
+    # These sections appear at the end of man pages and carry no diagnostic value.
+    # We truncate the entire document when we encounter the first of these headers.
+    low_value_sections = {"SEE ALSO", "AUTHOR", "AUTHORS", "REPORTING BUGS", "COPYRIGHT"}
+
     lines = clean_text.splitlines()
     cleaned_lines = []
-    blank_run = 0
 
     for line in lines:
-        # Skip header/footer lines entirely
+        # Skip decorative header/footer lines entirely
         if header_footer_pattern.match(line):
             continue
 
-        # Strip leading indentation (page-level whitespace — not semantic)
-        # and normalize internal multiple spaces to a single space
+        # Strip leading indentation and normalize internal multi-spaces
         stripped = re.sub(r' {2,}', ' ', line.lstrip())
 
-        # Collapse runs of blank lines: allow at most 1 consecutive blank line
-        if stripped == "":
-            blank_run += 1
-            if blank_run <= 1:
+        # Truncate at the first low-value section header
+        if stripped in low_value_sections:
+            break
+
+        # Section-aware blank line handling:
+        # - Before a section header: emit a double newline (\n\n) as a strong split signal
+        # - All other blank lines within the body: drop them (collapse to nothing)
+        #   so flags/entries flow as a dense block — the splitter uses \n\n as its
+        #   primary boundary, keeping section content together in one chunk.
+        if section_header_pattern.match(stripped):
+            # Ensure previous content is separated from this header by a blank line
+            if cleaned_lines and cleaned_lines[-1] != "":
                 cleaned_lines.append("")
+            cleaned_lines.append(stripped)
+        elif stripped == "":
+            # Drop intra-section blank lines — they add no semantic value
+            pass
         else:
-            blank_run = 0
             cleaned_lines.append(stripped)
 
     return "\n".join(cleaned_lines).strip()
