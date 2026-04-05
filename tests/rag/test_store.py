@@ -90,7 +90,7 @@ def test_upsert_is_idempotent(ephemeral_chroma):
     # We query for top 5, but we should only get 1 result back.
     results = query_closest_chunks([0.5, 0.5, 0.5], n_results=5)
     assert len(results) == 1
-    assert results[0] == chunks[0]
+    assert results[0] == f"[man1:linux]\n{chunks[0]}"
 
 
 def test_query_on_empty_db(ephemeral_chroma):

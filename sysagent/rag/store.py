@@ -117,7 +117,15 @@ def query_closest_chunks(
         raise e
     
     documents = results.get("documents", [])
+    metadatas = results.get("metadatas", [])
+    
     if not documents or not documents[0]:
         return []
         
-    return documents[0]
+    formatted_results = []
+    for doc, meta in zip(documents[0], metadatas[0]):
+        src = meta.get("source", "unknown") if meta else "unknown"
+        top = meta.get("topic", "unknown") if meta else "unknown"
+        formatted_results.append(f"[{src}:{top}]\n{doc}")
+        
+    return formatted_results
