@@ -2,7 +2,12 @@ import pytest
 import os
 import json
 from unittest.mock import patch, MagicMock
+import chromadb
 from sysagent.rag.ingest import ingest_all, get_text_md5
+from sysagent.rag.extractor import extract_man_text
+from sysagent.rag.chunker import chunk_text
+from sysagent.rag.embedder import get_embeddings
+from sysagent.rag.store import query_closest_chunks
 
 @pytest.fixture
 def mock_config(tmp_path):
@@ -108,3 +113,61 @@ def test_ingest_all_handles_extraction_errors(mock_config, mock_components):
     m_store.assert_called_once()
     kwargs = m_store.call_args.kwargs
     assert kwargs["topic"] == "good_topic"
+
+
+@pytest.mark.integration
+def test_ingest_e2e_integration(tmp_path, monkeypatch):
+    """
+    Live End-to-End test of the pipeline! 
+    Uses REAL extraction, chunking, embedding (OpenAI), and storing (Chroma)
+    but points the destination directories to a temporary folder to keep it safe.
+    """
+    temp_manifest_path = tmp_path / "manifest.json"
+    temp_chroma_dir = tmp_path / "chroma_db"
+    
+    # Reroute the entire app into /tmp for this test
+    monkeypatch.setattr("sysagent.rag.ingest.MANIFEST_PATH", temp_manifest_path)
+    monkeypatch.setattr("sysagent.rag.store.CHROMA_DB_DIR", temp_chroma_dir)
+    
+    # Limit scope to robust commands to save API costs. We test two different
+    # commands to ensure Semantic search can actually pick the correct one.
+    monkeypatch.setattr("sysagent.rag.ingest.MAN_SECTIONS", ["1"])
+    monkeypatch.setattr("sysagent.rag.ingest.get_man_pages_in_section", lambda x: ["pwd", "whoami"])
+    
+    # 1. Baseline Truth
+    raw_text = extract_man_text("pwd", "1")
+    expected_chunks = chunk_text(raw_text)
+    
+    # 2. RUN FULL PIPELINE END-TO-END
+    ingest_all()
+    
+    # 3. Proof 1 (Hash Tracking Saved Correctly)
+    with open(temp_manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
+        assert manifest["man1/pwd"] == get_text_md5(raw_text)
+        
+    # 4. Proof 2 (ChromaDB physically stored the data matching chunk outputs)
+    client = chromadb.PersistentClient(path=str(temp_chroma_dir))
+    collection = client.get_collection("sysagent_core_knowledge")
+    
+    db_results = collection.get(where={
+        "$and": [
+            {"source": "man1"},
+            {"topic": "pwd"}
+        ]
+    })
+    db_chunks = db_results["documents"]
+    
+    assert len(db_chunks) == len(expected_chunks)
+    assert set(db_chunks) == set(expected_chunks)
+    
+    # 5. Proof 3 (Semantic Search actually works)
+    query_vector = get_embeddings(["print working directory"])[0]
+    semantic_results = query_closest_chunks(query_vector, n_results=1)
+    
+    # Validates our store updates didn't break things and we can truly find 'pwd'.
+    # Because whoami is also in the database but completely unrelated to the query, 
+    # the mathematical closest chunk must explicitly be 'pwd'.
+    assert len(semantic_results) == 1
+    assert "[man1:pwd]" in semantic_results[0]
+    assert "[man1:whoami]" not in semantic_results[0]
