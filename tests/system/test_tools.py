@@ -12,15 +12,54 @@ Philosophy:
     it requires a live OpenAI API key.
 """
 
+import json
 import pytest
+import subprocess
+import psutil
 from sysagent.system.tools import (
     MAX_JOURNAL_LINES,
     MAX_PROCESSES,
+    _format_uptime,
     get_system_metrics,
     get_top_processes,
     query_knowledge_base,
     read_journal_tail,
 )
+
+
+# ===========================================================================
+# _format_uptime (pure logic — no system calls, deterministic)
+# ===========================================================================
+
+class TestFormatUptime:
+
+    def test_zero_seconds(self):
+        """A fresh boot with 0s uptime should render as '0m'."""
+        assert _format_uptime(0) == "0m"
+
+    def test_minutes_only(self):
+        """60 seconds = exactly 1 minute, no hours or days prefix."""
+        assert _format_uptime(60) == "1m"
+
+    def test_sub_minute_rounds_down(self):
+        """45 seconds is less than a minute and should render as '0m'."""
+        assert _format_uptime(45) == "0m"
+
+    def test_hours_and_minutes(self):
+        """3661 seconds = 1 hour, 1 minute."""
+        assert _format_uptime(3661) == "1h 1m"
+
+    def test_hours_only_no_extra_days(self):
+        """3600 seconds = exactly 1 hour, 0 minutes (minutes always present)."""
+        assert _format_uptime(3600) == "1h 0m"
+
+    def test_days_hours_minutes(self):
+        """90061 seconds = 1 day, 1 hour, 1 minute."""
+        assert _format_uptime(90061) == "1d 1h 1m"
+
+    def test_days_no_hours(self):
+        """86400 seconds = exactly 1 day, 0 hours (hours omitted when 0)."""
+        assert _format_uptime(86400) == "1d 0m"
 
 
 # ===========================================================================
@@ -81,6 +120,17 @@ class TestGetSystemMetrics:
         uptime = get_system_metrics()["uptime"]
         assert isinstance(uptime, str)
         assert len(uptime) > 0
+
+    def test_get_system_metrics_exception(self, monkeypatch):
+        """Proves that a catastrophic psutil failure is caught and returned as an error dict."""
+        def mock_raise(*args, **kwargs):
+            raise Exception("Simulated psutil crash")
+        
+        monkeypatch.setattr(psutil, "cpu_percent", mock_raise)
+        result = get_system_metrics()
+        
+        assert "error" in result
+        assert "Simulated psutil crash" in result["error"]
 
 
 # ===========================================================================
@@ -144,6 +194,18 @@ class TestGetTopProcesses:
         assert result["limit"] == MAX_PROCESSES
         assert len(result["processes"]) <= MAX_PROCESSES
 
+    def test_get_top_processes_exception(self, monkeypatch):
+        """Proves that a catastrophic psutil.process_iter failure is caught and
+        returned as a structured error dict rather than crashing the agent."""
+        def mock_raise(*args, **kwargs):
+            raise Exception("Simulated process_iter crash")
+
+        monkeypatch.setattr(psutil, "process_iter", mock_raise)
+        result = get_top_processes(sort_by="cpu", limit=5)
+
+        assert "error" in result
+        assert "Simulated process_iter crash" in result["error"]
+
 
 # ===========================================================================
 # read_journal_tail
@@ -196,6 +258,73 @@ class TestReadJournalTail:
         # journalctl exits 0 with no output for unknown units
         assert "error" not in result
         assert "entries" in result or "note" in result
+
+    def test_read_journal_tail_timeout(self, monkeypatch):
+        """Proves that if journalctl hangs, we catch the timeout instead of hanging the LLM."""
+        def mock_run(*args, **kwargs):
+            raise subprocess.TimeoutExpired(cmd="journalctl", timeout=10)
+        
+        monkeypatch.setattr(subprocess, "run", mock_run)
+        result = read_journal_tail(lines=5)
+        
+        assert "error" in result
+        assert "timed out" in result["error"]
+
+    def test_read_journal_tail_not_found(self, monkeypatch):
+        """Proves that running on a system without systemd returns a graceful error."""
+        def mock_run(*args, **kwargs):
+            raise FileNotFoundError("No such file or directory: 'journalctl'")
+        
+        monkeypatch.setattr(subprocess, "run", mock_run)
+        result = read_journal_tail(lines=5)
+        
+        assert "error" in result
+        assert "journalctl not found" in result["error"]
+
+    def test_read_journal_tail_exit_error(self, monkeypatch):
+        """Proves that journalctl exit codes != 0 are captured safely."""
+        def mock_run(*args, **kwargs):
+            return subprocess.CompletedProcess(
+                args=args[0], 
+                returncode=1, 
+                stdout="", 
+                stderr="Failed to read journal: Permission denied"
+            )
+        
+        monkeypatch.setattr(subprocess, "run", mock_run)
+        result = read_journal_tail(lines=5)
+        
+        assert "error" in result
+        assert "exited with code 1" in result["error"]
+        assert "Permission denied" in result["error"]
+
+
+# ===========================================================================
+# JSON Serializability Contract
+# ===========================================================================
+
+def test_all_tools_are_json_serializable():
+    """
+    Contract test: every tool's output must be serializable to JSON.
+
+    The ReAct loop passes tool results directly to json.dumps() before
+    sending them to the OpenAI API. A single non-serializable value
+    (e.g. a datetime object, a psutil type, a Path) would crash the
+    entire agent at runtime with a silent TypeError.
+
+    This test catches that class of bug at the tools layer, not in production.
+    """
+    results = [
+        ("get_system_metrics",     get_system_metrics()),
+        ("get_top_processes(cpu)",  get_top_processes(sort_by="cpu", limit=3)),
+        ("get_top_processes(mem)",  get_top_processes(sort_by="memory", limit=3)),
+        ("read_journal_tail",       read_journal_tail(lines=5)),
+    ]
+    for tool_name, result in results:
+        try:
+            json.dumps(result)
+        except (TypeError, ValueError) as e:
+            pytest.fail(f"'{tool_name}' returned non-JSON-serializable data: {e}")
 
 
 # ===========================================================================
