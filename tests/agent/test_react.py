@@ -17,7 +17,7 @@ def test_react_loop_e2e_health_check():
     Proves the loop can handle a basic health check request end-to-end.
     The LLM must invoke get_system_metrics, ingest the JSON, and return a text summary.
     """
-    prompt = "Give me a brief health check of this server's current CPU and memory usage."
+    prompt = "what is the cpu?"
     
     # This will block while the LLM thinks, asks for a tool call, 
     # executes it locally, and generates the final text.
