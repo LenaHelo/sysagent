@@ -40,3 +40,12 @@ EMBEDDING_MODEL = "text-embedding-3-small"
 # --- Retrieval Limits ---
 # Controls how many discrete chunks are injected into the LLM context window
 TOP_K_RESULTS = 5
+
+# --- LLM Configuration ---
+# The model used for all chat completions (RAG mode and ReAct loop).
+# Change this one line to switch the entire application to a different model.
+LLM_MODEL = "gpt-4o-mini"
+
+# Maximum number of tool-call iterations in a single ReAct loop run.
+# Acts as a circuit breaker to prevent infinite loops.
+REACT_MAX_STEPS = 5

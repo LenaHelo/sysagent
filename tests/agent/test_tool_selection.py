@@ -9,7 +9,8 @@ WITHOUT testing the actual loop execution.
 
 import json
 import pytest
-from sysagent.agent.core import get_openai_client, REACT_SYSTEM_PROMPT
+from sysagent.agent.core import get_openai_client
+from sysagent.agent.react import REACT_SYSTEM_PROMPT
 from sysagent.agent.schemas import SYSAGENT_TOOL_SCHEMAS
 
 @pytest.fixture

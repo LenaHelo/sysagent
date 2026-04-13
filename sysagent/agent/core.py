@@ -1,6 +1,6 @@
 import os
 from openai import OpenAI
-from sysagent.config import TOP_K_RESULTS
+from sysagent.config import TOP_K_RESULTS, LLM_MODEL
 from sysagent.rag.embedder import get_embeddings
 from sysagent.rag.store import query_closest_chunks
 
@@ -13,19 +13,6 @@ Your instructions are strict:
 4. Do NOT correct typos, formatting, or grammar found in the context. Use the exact terminology, strings, and unusual characters exactly as provided.
 """
 
-# The system prompt for the ReAct agentic loop (tool-calling mode)
-REACT_SYSTEM_PROMPT = """You are SysAgent, a specialized Linux system diagnostic assistant.
-
-Your capabilities and STRICT boundaries:
-1. Your ONLY purpose is to diagnose Linux systems. You have tools to inspect CPU, memory,
-   processes, system logs, and a Linux documentation knowledge base.
-2. Always use your tools to gather real data before answering. Do not rely on pre-trained
-   knowledge for system state — the host's actual data is the only truth.
-3. If the user's request is unrelated to Linux system diagnostics (e.g., recipes, general
-   knowledge, creative writing), politely decline and redirect them. Do NOT call any tools
-   for off-topic requests.
-4. Be concise and precise. You are talking to engineers, not end-users.
-"""
 def get_openai_client() -> OpenAI:
     """Returns an authenticated OpenAI client."""
     api_key = os.getenv("OPENAI_API_KEY")
@@ -33,7 +20,7 @@ def get_openai_client() -> OpenAI:
         raise ValueError("OPENAI_API_KEY environment variable is not set.")
     return OpenAI(api_key=api_key)
 
-def ask_sysagent(query: str, model: str = "gpt-4o-mini") -> str:
+def ask_sysagent(query: str, model: str = LLM_MODEL) -> str:
     """
     Main orchestration function for the RAG-enabled Agent.
     1. Embeds the user question.
