@@ -78,7 +78,8 @@ def upsert_chunks(
 
 def query_closest_chunks(
     query_embedding: list[float],
-    n_results: int = TOP_K_RESULTS
+    n_results: int = TOP_K_RESULTS,
+    topic_filter: str = None
 ) -> list[str]:
     """
     Given an embedded search query, retrieves the most semantically similar text
@@ -100,11 +101,18 @@ def query_closest_chunks(
     
     # Chroma returns nested lists because it supports querying multiple embeddings at once.
     # We only pass a single query_embedding, so we unpack the first element.
+    # Build the query arguments dynamically
+    query_kwargs = {
+        "query_embeddings": [query_embedding],
+        "n_results": n_results
+    }
+    
+    # Apply strict metadata filtering if the LLM provided a topic
+    if topic_filter:
+        query_kwargs["where"] = {"topic": topic_filter}
+
     try:
-        results = collection.query(
-            query_embeddings=[query_embedding],
-            n_results=n_results
-        )
+        results = collection.query(**query_kwargs)
     except InvalidArgumentError as e:
         # Chroma raises this if, e.g., the user changes the embedding model size in config.py
         if "dimension" in str(e).lower():

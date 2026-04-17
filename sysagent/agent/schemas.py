@@ -73,6 +73,10 @@ SYSAGENT_TOOL_SCHEMAS = [
                     "query": {
                         "type": "string",
                         "description": "The natural language question or term to look up (e.g., 'OOM killer process selection algorithm')."
+                    },
+                    "topic_filter": {
+                        "type": "string",
+                        "description": "Optional command name or specific topic to completely isolate the search. Highly recommended. When searching for a flag like '-a', pass the parent command like 'ls' here to prevent semantic noise."
                     }
                 },
                 "required": ["query"]
