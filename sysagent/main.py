@@ -16,6 +16,7 @@ import argparse
 import sys
 
 from dotenv import load_dotenv
+from prompt_toolkit import PromptSession
 
 from sysagent.agent.react import REACT_SYSTEM_PROMPT, run_react_loop
 
@@ -23,7 +24,9 @@ BANNER = """
 ╔════════════════════════════════════════════╗
 ║      SysAgent — Linux Engineer AI          ║
 ║  Ask anything about your Linux system.     ║
-║  Type 'exit' or press Ctrl+C to quit.      ║
+║                                            ║
+║  Submit  : Alt+Enter  (or Esc then Enter)  ║
+║  Quit    : Type 'exit' or press Ctrl+C     ║
 ╚════════════════════════════════════════════╝
 """
 
@@ -48,10 +51,12 @@ def main() -> None:
     # Initialized once here and passed into every run_react_loop call,
     # giving the LLM full conversational context on every follow-up question.
     messages = [{"role": "system", "content": REACT_SYSTEM_PROMPT}]
+    session = PromptSession(multiline=True)
 
     while True:
         try:
-            user_input = input("› ").strip()
+            print("\n" + "─" * 45) # Visual separator for multiline blocks
+            user_input = session.prompt("› ").strip()
         except (KeyboardInterrupt, EOFError):
             print("\n\nGoodbye.")
             sys.exit(0)
