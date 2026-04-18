@@ -12,6 +12,7 @@ Design rules:
     to the LLM or the caller.
 """
 
+import os
 import subprocess
 import time
 import psutil
@@ -107,17 +108,21 @@ def get_top_processes(sort_by: str = "cpu", limit: int = 10) -> dict:
         time.sleep(0.5)
 
         # Pass 2: read the real CPU% values now that we have a delta
+        own_pid = os.getpid()
         results = []
         for proc in procs:
             try:
-                results.append({
+                entry = {
                     "pid": proc.pid,
                     "name": proc.name(),
                     "user": proc.username(),
                     "cpu_percent": round(proc.cpu_percent(), 2),
                     "memory_percent": round(proc.memory_percent(), 2),
                     "status": proc.status(),
-                })
+                }
+                if proc.pid == own_pid:
+                    entry["is_sysagent"] = True
+                results.append(entry)
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 # Process may have exited between pass 1 and pass 2 — skip it
                 continue
