@@ -50,7 +50,22 @@ def main() -> None:
     # The shared message history for this session.
     # Initialized once here and passed into every run_react_loop call,
     # giving the LLM full conversational context on every follow-up question.
-    messages = [{"role": "system", "content": REACT_SYSTEM_PROMPT}]
+    
+    import platform
+    import os
+    
+    distro = "Unknown Linux"
+    if os.path.exists("/etc/os-release"):
+        with open("/etc/os-release") as f:
+            for line in f:
+                if line.startswith("PRETTY_NAME="):
+                    distro = line.split("=", 1)[1].strip().strip('"')
+                    break
+                    
+    kernel = platform.release()
+    dynamic_prompt = f"You are SysAgent, running directly on {distro} (Kernel {kernel}).\n\n{REACT_SYSTEM_PROMPT}"
+    
+    messages = [{"role": "system", "content": dynamic_prompt}]
     session = PromptSession(multiline=True)
 
     while True:

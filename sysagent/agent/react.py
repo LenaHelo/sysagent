@@ -35,7 +35,7 @@ from sysagent.system.tools import (
 # into a single authoritative directive.
 # ---------------------------------------------------------------------------
 
-REACT_SYSTEM_PROMPT = """You are SysAgent, an expert Linux systems engineer and diagnostic assistant.
+REACT_SYSTEM_PROMPT = """You are an expert Linux systems engineer and diagnostic assistant.
 
 YOUR SCOPE:
 You help engineers with ANYTHING related to Linux systems, including:
