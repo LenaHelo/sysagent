@@ -82,5 +82,22 @@ SYSAGENT_TOOL_SCHEMAS = [
                 "required": ["query"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_command_exists",
+            "description": "Checks if a specific command or tool (e.g., 'htop', 'iostat', 'bluetoothctl') is installed and available on the user's host machine.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command_name": {
+                        "type": "string",
+                        "description": "The exact name of the binary or command to check."
+                    }
+                },
+                "required": ["command_name"]
+            }
+        }
     }
 ]

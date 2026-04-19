@@ -257,3 +257,28 @@ def _format_uptime(seconds: int) -> str:
         parts.append(f"{hours}h")
     parts.append(f"{minutes}m")
     return " ".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Tool 5: Check Command Exists
+# ---------------------------------------------------------------------------
+
+def check_command_exists(command_name: str) -> dict:
+    """
+    Checks if a command or executable exists on the system PATH.
+    """
+    import shutil
+    if not command_name or not command_name.strip():
+        return {"error": "command_name must be a non-empty string."}
+        
+    try:
+        command_name = command_name.strip()
+        path = shutil.which(command_name)
+        return {
+            "command": command_name,
+            "exists": path is not None,
+            "path": path,
+            "note": f"The command '{command_name}' is installed." if path else f"The command '{command_name}' is NOT installed."
+        }
+    except Exception as e:
+        return {"error": f"check_command_exists failed: {e}"}

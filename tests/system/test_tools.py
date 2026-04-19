@@ -24,6 +24,7 @@ from sysagent.system.tools import (
     get_top_processes,
     query_knowledge_base,
     read_journal_tail,
+    check_command_exists,
 )
 
 
@@ -300,6 +301,37 @@ class TestReadJournalTail:
 
 
 # ===========================================================================
+# check_command_exists
+# ===========================================================================
+
+class TestCheckCommandExists:
+
+    def test_existing_command(self):
+        """A common Linux binary should return exists=True and a path."""
+        result = check_command_exists("ls")
+        assert "error" not in result
+        assert result["command"] == "ls"
+        assert result["exists"] is True
+        assert result["path"] is not None
+        assert "installed" in result["note"]
+
+    def test_missing_command(self):
+        """A fake binary should return exists=False and path=None."""
+        result = check_command_exists("somefakecommandxyz123")
+        assert "error" not in result
+        assert result["command"] == "somefakecommandxyz123"
+        assert result["exists"] is False
+        assert result["path"] is None
+        assert "NOT installed" in result["note"]
+
+    def test_empty_string_returns_error(self):
+        """Empty string must return an error."""
+        result = check_command_exists("   ")
+        assert "error" in result
+        assert "non-empty string" in result["error"]
+
+
+# ===========================================================================
 # JSON Serializability Contract
 # ===========================================================================
 
@@ -319,6 +351,7 @@ def test_all_tools_are_json_serializable():
         ("get_top_processes(cpu)",  get_top_processes(sort_by="cpu", limit=3)),
         ("get_top_processes(mem)",  get_top_processes(sort_by="memory", limit=3)),
         ("read_journal_tail",       read_journal_tail(lines=5)),
+        ("check_command_exists(ls)", check_command_exists("ls")),
     ]
     for tool_name, result in results:
         try:

@@ -22,6 +22,7 @@ from sysagent.system.tools import (
     get_top_processes,
     query_knowledge_base,
     read_journal_tail,
+    check_command_exists,
 )
 
 # ---------------------------------------------------------------------------
@@ -67,6 +68,8 @@ HOW TO OPERATE:
 5. INTERACTIVE TROUBLESHOOTING:
    - When helping a user troubleshoot an issue (e.g. broken hardware, network issue, software failure), DO NOT just dump a huge list of commands for them to run on their own.
    - Instead, act like an expert IT consultant: provide a brief overview of what you think the problem might be, and then offer to walk them through it step-by-step.
+   - Before asking a user to run a command or tool (especially third-party utilities like 'htop', 'iostat', 'bluetoothctl'), ALWAYS use check_command_exists to verify it is installed on their system. DO NOT check the same command more than once.
+   - If it is not installed, either tell them how to install it or suggest a native alternative.
    - Give them ONE explicit step or command to run at a time, and ask them to paste the output back to you.
    - Analyze their output, explain what it means, and then provide the next step based on your findings until the issue is resolved.
 """
@@ -82,6 +85,7 @@ TOOL_DISPATCHER = {
     "get_top_processes": get_top_processes,
     "read_journal_tail": read_journal_tail,
     "query_knowledge_base": query_knowledge_base,
+    "check_command_exists": check_command_exists,
 }
 
 
