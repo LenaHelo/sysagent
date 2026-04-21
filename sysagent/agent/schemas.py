@@ -76,7 +76,7 @@ SYSAGENT_TOOL_SCHEMAS = [
                     },
                     "topic_filter": {
                         "type": "string",
-                        "description": "Optional command name or specific topic to completely isolate the search. Highly recommended. When searching for a flag like '-a', pass the parent command like 'ls' here to prevent semantic noise."
+                        "description": "Optional command name to isolate the search (e.g., 'ls' or 'swapon'). WARNING: This must be an exact match to a known command name. Do NOT use generic terms like 'swap' or 'network'. If unsure, omit this filter for a broad semantic search."
                     }
                 },
                 "required": ["query"]
