@@ -123,3 +123,120 @@ def get_man_pages_in_section(section: str) -> list[str]:
                     commands.add(cmd_name)
                     
     return sorted(list(commands))
+
+# --- Kernel Docs RST Parser (docutils) ---
+from pathlib import Path
+from docutils.core import publish_doctree
+from docutils import nodes
+from docutils.parsers.rst import Directive, directives, roles
+
+class DropDirective(Directive):
+    """Ignores the directive and drops all its content."""
+    has_content = True
+    required_arguments = 0
+    optional_arguments = 10
+    final_argument_whitespace = True
+    option_spec = {k: lambda x: x for k in ["maxdepth", "glob", "hidden", "caption", "name", "class", "alt", "align", "width", "height", "scale", "language", "linenos"]}
+    def run(self):
+        return []
+
+class PassThroughDirective(Directive):
+    """Ignores the directive label but parses its content as normal text."""
+    has_content = True
+    required_arguments = 0
+    optional_arguments = 10
+    final_argument_whitespace = True
+    def run(self):
+        if not self.content:
+            return []
+        node = nodes.container()
+        self.state.nested_parse(self.content, self.content_offset, node)
+        return node.children
+
+# Register explicitly DROP directives
+for name in [
+    "include", "kernel-include", "maintainers-include", "literalinclude", 
+    "kernel-doc", "kernel-abi", "kernel-feat", "automodule",
+    "toctree", "contents", "sectnum", "c:namespace", "c:namespace-push", "c:namespace-pop", "ifconfig",
+    "cssclass", "tabularcolumns", "raw", "highlight", "kernel-figure", "kernel-render"
+]:
+    directives.register_directive(name, DropDirective)
+
+# Register explicitly PASSTHROUGH directives
+for name in [
+    "c:function", "c:macro", "c:type", "c:struct", "c:enum",
+    "only", "seealso", "flat-table", "class", "note:"
+]:
+    directives.register_directive(name, PassThroughDirective)
+
+# --- GLOBAL FALLBACK FOR FUTURE UNKNOWN DIRECTIVES ---
+original_directive_func = directives.directive
+
+def fallback_directive(directive_name, language_module, document):
+    func_or_class, msg = original_directive_func(directive_name, language_module, document)
+    if func_or_class is None:
+        # If it's a completely unknown future directive, default to PassThrough
+        # to ensure we never drop valuable text inside it.
+        return PassThroughDirective, []
+    return func_or_class, msg
+
+directives.directive = fallback_directive
+# -----------------------------------------------------
+
+class CleanTextVisitor(nodes.NodeVisitor):
+    def __init__(self, document):
+        super().__init__(document)
+        self.chunks = []
+        
+    def visit_Text(self, node):
+        self.chunks.append(node.astext())
+        
+    def depart_paragraph(self, node):
+        self.chunks.append("\n\n")
+
+    def visit_literal_block(self, node):
+        self.chunks.append(f"```\n{node.astext()}\n```\n\n")
+        raise nodes.SkipNode
+        
+    def visit_row(self, node): pass
+    def depart_row(self, node): self.chunks.append("\n")
+    def visit_entry(self, node): self.chunks.append(" | ")
+    def visit_list_item(self, node): self.chunks.append("- ")
+
+    def visit_title(self, node):
+        self.chunks.append(f"\n# {node.astext()}\n\n")
+        raise nodes.SkipNode
+
+    def visit_system_message(self, node): raise nodes.SkipNode
+        
+    def visit_problematic(self, node):
+        text = node.astext()
+        m = re.search(r'`([^`]+)`', text)
+        if m:
+            self.chunks.append(m.group(1))
+        else:
+            self.chunks.append(text)
+        raise nodes.SkipNode
+
+    def unknown_visit(self, node): pass
+    def unknown_departure(self, node): pass
+
+def get_rst_files(docs_path: Path) -> list[Path]:
+    if not docs_path or not docs_path.exists() or not docs_path.is_dir():
+        return []
+    return sorted(list(docs_path.rglob("*.rst")))
+
+def extract_rst_text(filepath: Path) -> str:
+    try:
+        raw_text = filepath.read_text(encoding="utf-8", errors="replace")
+        settings = {'report_level': 5, 'halt_level': 5}
+        document = publish_doctree(raw_text, settings_overrides=settings)
+        visitor = CleanTextVisitor(document)
+        document.walkabout(visitor)
+        
+        final_text = "".join(visitor.chunks)
+        final_text = re.sub(r'\n{3,}', '\n\n', final_text)
+        return final_text.strip()
+    except Exception as e:
+        print(f"Failed to parse {filepath}: {e}")
+        return ""

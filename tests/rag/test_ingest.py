@@ -25,11 +25,13 @@ def mock_components():
     """Mocks all downstream heavy components."""
     with patch("sysagent.rag.ingest.get_man_pages_in_section") as m_pages, \
          patch("sysagent.rag.ingest.extract_man_text") as m_extract, \
+         patch("sysagent.rag.ingest.get_rst_files") as m_rst_files, \
+         patch("sysagent.rag.ingest.extract_rst_text") as m_rst_extract, \
          patch("sysagent.rag.ingest.chunk_text") as m_chunk, \
          patch("sysagent.rag.ingest.get_embeddings") as m_embed, \
          patch("sysagent.rag.ingest.upsert_chunks") as m_store:
         
-        yield m_pages, m_extract, m_chunk, m_embed, m_store
+        yield m_pages, m_extract, m_rst_files, m_rst_extract, m_chunk, m_embed, m_store
 
 
 def test_ingest_all_new_file(mock_config, mock_components):
@@ -37,7 +39,9 @@ def test_ingest_all_new_file(mock_config, mock_components):
     Validates that a new file successfully triggers extraction, chunking,
     embedding, storing, and importantly, saves the hash to the manifest.
     """
-    m_pages, m_extract, m_chunk, m_embed, m_store = mock_components
+    m_pages, m_extract, m_rst_files, m_rst_extract, m_chunk, m_embed, m_store = mock_components
+    
+    m_rst_files.return_value = []
     
     m_pages.return_value = ["test_topic"]
     m_extract.return_value = "hello world"
@@ -69,7 +73,8 @@ def test_ingest_all_skips_unchanged(mock_config, mock_components):
     Validates the idempotent nature of the pipeline. If a hash already exists
     in the manifest, all downstream tools should be skipped to save costs.
     """
-    m_pages, m_extract, m_chunk, m_embed, m_store = mock_components
+    m_pages, m_extract, m_rst_files, m_rst_extract, m_chunk, m_embed, m_store = mock_components
+    m_rst_files.return_value = []
     
     # Pre-populate manifest with the completed hash
     manifest_path = mock_config
@@ -94,7 +99,8 @@ def test_ingest_all_handles_extraction_errors(mock_config, mock_components):
     """
     Validates that a crash on one file doesn't crash the entire pipeline queue.
     """
-    m_pages, m_extract, m_chunk, m_embed, m_store = mock_components
+    m_pages, m_extract, m_rst_files, m_rst_extract, m_chunk, m_embed, m_store = mock_components
+    m_rst_files.return_value = []
     
     # Two pages: first crashes, second succeeds
     m_pages.return_value = ["crash_topic", "good_topic"]
@@ -113,6 +119,26 @@ def test_ingest_all_handles_extraction_errors(mock_config, mock_components):
     m_store.assert_called_once()
     kwargs = m_store.call_args.kwargs
     assert kwargs["topic"] == "good_topic"
+
+def test_ingest_all_skips_kernel_docs_gracefully(mock_config, mock_components, monkeypatch, capsys):
+    """
+    Validates that the ingestion loop gracefully skips kernel documentation
+    if KERNEL_DOCS_PATH is None or does not exist, without crashing.
+    """
+    m_pages, m_extract, m_rst_files, m_rst_extract, m_chunk, m_embed, m_store = mock_components
+    
+    # Mock KERNEL_DOCS_PATH to None
+    monkeypatch.setattr("sysagent.rag.ingest.KERNEL_DOCS_PATH", None)
+    
+    # Ensure man page processing doesn't do anything
+    m_pages.return_value = []
+    
+    ingest_all()
+    
+    captured = capsys.readouterr()
+    assert "Kernel Documentation not found. Skipping kernel ingestion phase." in captured.out
+    m_rst_files.assert_not_called()
+    m_rst_extract.assert_not_called()
 
 
 @pytest.mark.integration
@@ -133,6 +159,7 @@ def test_ingest_e2e_integration(tmp_path, monkeypatch):
     # commands to ensure Semantic search can actually pick the correct one.
     monkeypatch.setattr("sysagent.rag.ingest.MAN_SECTIONS", ["1"])
     monkeypatch.setattr("sysagent.rag.ingest.get_man_pages_in_section", lambda x: ["pwd", "whoami"])
+    monkeypatch.setattr("sysagent.rag.ingest.KERNEL_DOCS_PATH", None)
     
     # 1. Baseline Truth
     raw_text = extract_man_text("pwd", "1")

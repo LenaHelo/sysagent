@@ -1,5 +1,8 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # --- Directory Paths ---
 # Use ~/.config/sysagent for all persistent application data
@@ -28,9 +31,12 @@ MAN_SECTIONS = ["1", "8"]
 #   "3"  — C library functions (malloc, pthread...) — large corpus, use with caution
 #
 # Phase 3 — Kernel documentation:
-#   Sourced from /usr/share/doc/linux-doc/ (RST format)
-#   Requires: apt install linux-doc
-#   Requires: RSTExtractor implementation in sysagent/rag/extractor.py
+# Path to the Linux kernel Documentation/ directory (RST source files).
+# Set KERNEL_DOCS_PATH in your .env file to enable this ingestion source.
+# Example: KERNEL_DOCS_PATH=/usr/share/doc/linux-doc/Documentation
+# If unset or the path does not exist, kernel doc ingestion is skipped gracefully.
+_raw_kernel_docs_path = os.getenv("KERNEL_DOCS_PATH", "").strip()
+KERNEL_DOCS_PATH: Path | None = Path(_raw_kernel_docs_path) if _raw_kernel_docs_path else None
 
 # --- Chunking & Embedding Variables ---
 CHUNK_SIZE = 1000

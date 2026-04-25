@@ -1,8 +1,13 @@
 import os
 import json
 import hashlib
-from sysagent.config import MANIFEST_PATH, MAN_SECTIONS
-from sysagent.rag.extractor import get_man_pages_in_section, extract_man_text
+from sysagent.config import MANIFEST_PATH, MAN_SECTIONS, KERNEL_DOCS_PATH
+from sysagent.rag.extractor import (
+    get_man_pages_in_section, 
+    extract_man_text,
+    get_rst_files,
+    extract_rst_text
+)
 from sysagent.rag.chunker import chunk_text
 from sysagent.rag.embedder import get_embeddings
 from sysagent.rag.store import upsert_chunks
@@ -97,6 +102,62 @@ def ingest_all():
                 print(f"Error processing {manifest_key}: {e}")
                 total_errors += 1
     
+    # --- Kernel Documentation Ingestion Pass ---
+    if not KERNEL_DOCS_PATH or not KERNEL_DOCS_PATH.exists():
+        print("\n[WARNING] Kernel Documentation not found. Skipping kernel ingestion phase.")
+        print("To enable deep kernel diagnostics, you must download the raw .rst source files.")
+        print("You can do this safely without downloading the whole kernel by running:")
+        print("  git clone --depth 1 --filter=blob:none --sparse https://github.com/torvalds/linux.git kernel-source")
+        print("  cd kernel-source && git sparse-checkout set Documentation")
+        print("Then, set KERNEL_DOCS_PATH=/absolute/path/to/kernel-source/Documentation in your .env file.")
+    else:
+        print(f"\nScanning Kernel Documentation at {KERNEL_DOCS_PATH}")
+        rst_files = get_rst_files(KERNEL_DOCS_PATH)
+        print(f"Found {len(rst_files)} .rst files.")
+        
+        for filepath in rst_files:
+            # Create a unique, readable key like "kernel/admin-guide/mm/concepts"
+            try:
+                rel_path = filepath.relative_to(KERNEL_DOCS_PATH)
+                topic = str(rel_path.with_suffix(''))
+            except ValueError:
+                topic = filepath.stem
+                
+            manifest_key = f"kernel/{topic}"
+            
+            try:
+                text = extract_rst_text(filepath)
+                if not text or not text.strip():
+                    continue
+                    
+                md5_hash = get_text_md5(text)
+                if manifest.get(manifest_key) == md5_hash:
+                    total_skipped += 1
+                    continue
+                
+                print(f"Ingesting: {manifest_key}...")
+                
+                chunks = chunk_text(text)
+                if not chunks:
+                    continue
+                
+                embeddings = get_embeddings(chunks)
+                
+                upsert_chunks(
+                    source="kernel",
+                    topic=topic,
+                    chunks=chunks,
+                    embeddings=embeddings
+                )
+                
+                manifest[manifest_key] = md5_hash
+                total_processed += 1
+                save_manifest(manifest)
+                
+            except Exception as e:
+                print(f"Error processing {manifest_key}: {e}")
+                total_errors += 1
+
     print("\n[Ingestion Complete]")
     print(f"Processed / Updated : {total_processed}")
     print(f"Skipped (unchanged) : {total_skipped}")

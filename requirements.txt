@@ -5,3 +5,4 @@ psutil>=5.9.0
 python-dotenv>=1.0.0
 pytest>=8.0.0
 prompt_toolkit>=3.0.0
+docutils>=0.20.0

@@ -16,3 +16,4 @@ env/
 
 # Local DBs / Artifacts
 chroma_db/
+kernel-source/
