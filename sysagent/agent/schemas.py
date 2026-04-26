@@ -72,11 +72,12 @@ SYSAGENT_TOOL_SCHEMAS = [
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "The natural language question or term to look up (e.g., 'OOM killer process selection algorithm')."
+                        "description": "The natural language query to search for (e.g., 'OOM killer', 'ls flags')."
                     },
-                    "topic_filter": {
+                    "source_filter": {
                         "type": "string",
-                        "description": "Optional command name to isolate the search (e.g., 'ls' or 'swapon'). WARNING: This must be an exact match to a known command name. Do NOT use generic terms like 'swap' or 'network'. If unsure, omit this filter for a broad semantic search."
+                        "enum": ["kernel", "man"],
+                        "description": "Corpus filter. You MUST use 'kernel' for conceptual architecture/subsystems, or 'man' for command-line syntax. Omit ONLY if searching for both simultaneously."
                     }
                 },
                 "required": ["query"]

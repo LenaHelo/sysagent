@@ -193,7 +193,7 @@ def read_journal_tail(unit: str = None, lines: int = 50) -> dict:
 # Tool 4: Query Knowledge Base (RAG)
 # ---------------------------------------------------------------------------
 
-def query_knowledge_base(query: str, topic_filter: str = None) -> dict:
+def query_knowledge_base(query: str, source_filter: str = None) -> dict:
     """
     Performs a semantic search against the SysAgent ChromaDB knowledge base.
 
@@ -203,7 +203,7 @@ def query_knowledge_base(query: str, topic_filter: str = None) -> dict:
 
     Args:
         query: A natural-language search term (e.g., "OOM killer process selection").
-        topic_filter: Optional command or topic name to isolate the search (e.g., "ls").
+        source_filter: Optional corpus to isolate the search (e.g., "kernel", "man").
     """
     # Import here to avoid circular imports at module load time
     from sysagent.rag.embedder import get_embeddings
@@ -218,7 +218,7 @@ def query_knowledge_base(query: str, topic_filter: str = None) -> dict:
         chunks = query_closest_chunks(
             query_vector, 
             n_results=TOP_K_RESULTS, 
-            topic_filter=topic_filter
+            source_filter=source_filter
         )
 
         if not chunks:

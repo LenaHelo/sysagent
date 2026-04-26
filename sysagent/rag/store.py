@@ -1,7 +1,7 @@
 import os
 import chromadb
 from chromadb.errors import InvalidArgumentError
-from sysagent.config import CHROMA_DB_DIR, CHROMA_COLLECTION_NAME, TOP_K_RESULTS
+from sysagent.config import CHROMA_DB_DIR, CHROMA_COLLECTION_NAME, TOP_K_RESULTS, MAN_SECTIONS
 
 
 def get_chroma_client() -> chromadb.ClientAPI:
@@ -79,7 +79,7 @@ def upsert_chunks(
 def query_closest_chunks(
     query_embedding: list[float],
     n_results: int = TOP_K_RESULTS,
-    topic_filter: str = None
+    source_filter: str = None
 ) -> list[str]:
     """
     Given an embedded search query, retrieves the most semantically similar text
@@ -88,6 +88,7 @@ def query_closest_chunks(
     Args:
         query_embedding (list[float]): The single embedding vector for the user's query.
         n_results (int): Max number of chunks to return (default: TOP_K_RESULTS).
+        source_filter (str): Optional source to restrict search (e.g. "kernel" or "man").
 
     Returns:
         list[str]: A list of text chunks, ordered by relevance (most relevant first).
@@ -107,9 +108,19 @@ def query_closest_chunks(
         "n_results": n_results
     }
     
-    # Apply strict metadata filtering if the LLM provided a topic
-    if topic_filter:
-        query_kwargs["where"] = {"topic": topic_filter}
+    where_clauses = {}
+        
+    if source_filter:
+        if source_filter == "man":
+            man_sources = [f"man{sec}" for sec in MAN_SECTIONS]
+            where_clauses["source"] = {"$in": man_sources}
+        else:
+            where_clauses["source"] = source_filter
+            
+    if len(where_clauses) == 1:
+        query_kwargs["where"] = where_clauses
+    elif len(where_clauses) > 1:
+        query_kwargs["where"] = {"$and": [{k: v} for k, v in where_clauses.items()]}
 
     try:
         results = collection.query(**query_kwargs)
