@@ -45,7 +45,7 @@ EMBEDDING_MODEL = "text-embedding-3-small"
 
 # --- Retrieval Limits ---
 # Controls how many discrete chunks are injected into the LLM context window
-TOP_K_RESULTS = 5
+TOP_K_RESULTS = 10
 
 # --- LLM Configuration ---
 # The model used for all chat completions (RAG mode and ReAct loop).
