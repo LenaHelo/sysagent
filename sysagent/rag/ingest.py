@@ -101,7 +101,7 @@ def ingest_all():
             except Exception as e:
                 print(f"Error processing {manifest_key}: {e}")
                 total_errors += 1
-    
+      
     # --- Kernel Documentation Ingestion Pass ---
     if not KERNEL_DOCS_PATH or not KERNEL_DOCS_PATH.exists():
         print("\n[WARNING] Kernel Documentation not found. Skipping kernel ingestion phase.")
@@ -157,7 +157,7 @@ def ingest_all():
             except Exception as e:
                 print(f"Error processing {manifest_key}: {e}")
                 total_errors += 1
-
+    
     print("\n[Ingestion Complete]")
     print(f"Processed / Updated : {total_processed}")
     print(f"Skipped (unchanged) : {total_skipped}")

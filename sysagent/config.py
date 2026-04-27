@@ -16,7 +16,7 @@ CHROMA_COLLECTION_NAME = "sysagent_core_knowledge"
 
 # MAN_SECTIONS defines the active corpus for the RAG ingestion pipeline.
 # Phase 1 (Micro-MVP): Only man1 and man8 to validate the pipeline.
-MAN_SECTIONS = ["1", "8"]
+MAN_SECTIONS = ["1", "2", "4", "5", "7", "8"]
 
 # --- Deferred Data Sources ---
 # Uncomment sections below as the project expands:

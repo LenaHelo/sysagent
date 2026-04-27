@@ -224,7 +224,29 @@ class CleanTextVisitor(nodes.NodeVisitor):
 def get_rst_files(docs_path: Path) -> list[Path]:
     if not docs_path or not docs_path.exists() or not docs_path.is_dir():
         return []
-    return sorted(list(docs_path.rglob("*.rst")))
+    
+    IGNORED_DIRS = {
+        "translations",
+        "process",
+        "maintainer",
+        "doc-guide",
+        "dev-tools",
+        "sphinx",
+        "sphinx-includes",
+        "sphinx-static",
+        "litmus-tests",
+        "kbuild",
+        "kernel-hacking"
+    }
+    
+    # rglob finds all .rst files, but we want to exclude noisy directories
+    # to avoid database bloat and search pollution.
+    all_rst_files = docs_path.rglob("*.rst")
+    filtered_files = [
+        f for f in all_rst_files 
+        if not any(d in f.parts for d in IGNORED_DIRS)
+    ]
+    return sorted(filtered_files)
 
 def extract_rst_text(filepath: Path) -> str:
     try:
