@@ -18,6 +18,7 @@ from sysagent.agent.core import get_openai_client
 from sysagent.agent.schemas import SYSAGENT_TOOL_SCHEMAS
 from sysagent.config import LLM_MODEL, REACT_MAX_STEPS
 from sysagent.system.tools import (
+    get_os_info,
     get_system_metrics,
     get_top_processes,
     query_knowledge_base,
@@ -39,6 +40,7 @@ REACT_SYSTEM_PROMPT = """You are an expert Linux systems engineer and diagnostic
 
 YOUR SCOPE:
 You help engineers with ANYTHING related to Linux systems, including:
+- System Identification: identifying the Linux distribution, kernel version, hostname, and machine architecture.
 - Live system diagnostics: CPU usage, memory, processes, swap, load average, uptime, logs.
 - Hardware & Drivers: peripherals, Bluetooth, audio (ALSA/PulseAudio/PipeWire), networking, and USB devices.
 - Linux concepts and documentation: explaining what metrics mean, kernel parameters,
@@ -82,6 +84,7 @@ HOW TO OPERATE:
 # ---------------------------------------------------------------------------
 
 TOOL_DISPATCHER = {
+    "get_os_info": get_os_info,
     "get_system_metrics": get_system_metrics,
     "get_top_processes": get_top_processes,
     "read_journal_tail": read_journal_tail,

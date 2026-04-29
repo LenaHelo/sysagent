@@ -10,6 +10,18 @@ SYSAGENT_TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
+            "name": "get_os_info",
+            "description": "Returns detailed information about the host operating system, including distribution name, kernel version, hostname, and architecture. Use this to identify the platform you are working on.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "get_system_metrics",
             "description": "Returns a snapshot of the host system's vital signs including CPU percent, RAM, Swap, load average, and uptime. Call this first to get a broad overview of system health.",
             "parameters": {

@@ -24,7 +24,36 @@ MAX_JOURNAL_LINES = 200
 
 
 # ---------------------------------------------------------------------------
-# Tool 1: System Metrics
+# Tool 1: OS Information
+# ---------------------------------------------------------------------------
+
+def get_os_info() -> dict:
+    """
+    Returns detailed information about the host operating system.
+    Includes distribution name, version, kernel release, and hostname.
+    """
+    import platform
+    try:
+        distro = "Unknown Linux"
+        if os.path.exists("/etc/os-release"):
+            with open("/etc/os-release") as f:
+                for line in f:
+                    if line.startswith("PRETTY_NAME="):
+                        distro = line.split("=", 1)[1].strip().strip('"')
+                        break
+
+        return {
+            "distribution": distro,
+            "kernel_version": platform.release(),
+            "hostname": platform.node(),
+            "architecture": platform.machine(),
+        }
+    except Exception as e:
+        return {"error": f"get_os_info failed: {e}"}
+
+
+# ---------------------------------------------------------------------------
+# Tool 2: System Metrics
 # ---------------------------------------------------------------------------
 
 def get_system_metrics() -> dict:
