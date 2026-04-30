@@ -223,8 +223,7 @@ These define what success looks like for the first release. Every item below mus
 | G5 | Security advisory lookup | Agent can surface CVEs or kernel advisories relevant to the current kernel version or running software |
 | G6 | Rich, readable CLI output | Responses use structured formatting (tables, panels, colour) appropriate to a terminal environment |
 | G7 | Session context persistence | Within a single session, the agent retains conversational context so follow-up questions build on prior exchanges. Context does not persist across sessions by default |
-| G8 | Offline-capable core | Live system data collection and local documentation retrieval (RAG) work without internet access. Features requiring external services — CVE lookups, kernel changelogs, LLM API calls — degrade gracefully: SysAgent still returns a useful answer from local data and notes that external data is unavailable, rather than failing silently or crashing. |
-| G9 | End-to-end demo in under 5 minutes | The full value proposition — query → reasoning → retrieval → answer — is demonstrable in a short session |
+| G8 | End-to-end demo in under 5 minutes | The full value proposition — query → reasoning → retrieval → answer — is demonstrable in a short session |
 
 ---
 
@@ -240,7 +239,7 @@ These are explicitly out of scope for the first version. Listing them prevents s
 | NG4 | Persistent alerting daemon / background service | Alerting in v1 is query-triggered, not continuous; a background watchdog is a future feature |
 | NG5 | Multi-user or role-based access control | SysAgent has no internal user management or permission model. OS-level privileges are handled by Linux directly: root access is strongly recommended for full visibility, but non-root operation is permitted with a degraded data warning |
 | NG6 | Writing or modifying system configuration | SysAgent is read-only in v1; it observes and advises but does not make changes to the system |
-| NG7 | Custom LLM fine-tuning or local model training | SysAgent uses an existing LLM provider or local model via API; training custom models is out of scope |
+| NG7 | Custom LLM fine-tuning or local model training | SysAgent uses an existing LLM provider via API; training custom models is out of scope |
 | NG8 | Containerised or Kubernetes workload introspection | Container-native tooling (e.g. cgroup v2 namespacing, pod-level metrics) is deferred to a future version |
 
 > **Note on NG6 (read-only):** This is a deliberate safety and trust decision for v1. SysAgent may run with root privileges for comprehensive visibility, but uses that access exclusively to read — never to modify system state. A tool that can modify system state carries significantly higher risk and requires a different trust model. Actuation capabilities may be revisited in v2 with appropriate safeguards.
@@ -437,7 +436,7 @@ To evaluate whether SysAgent is successful, we define the following **Product Qu
 | **Context Window Stability** | 0% of queries fail due to `ContextWindowExceeded` or `MaxTokens` errors. | Feeding deliberately massive outputs (e.g., full `dmesg`) to ensure the framing and pruning logic holds. |
 | **Tool Call Efficiency** | < 1 unnecessary tool call per query on average. | Count of executed tools vs. optimal required tools across the 20-scenario test suite. |
 | **Graceful Failure Rate** | 100% of tool execution errors (e.g., `Permission Denied`) are caught and explained to the user without hard crashing. | Injecting simulated permission and missing binary errors during development testing. |
-| **Offline Resilience** | 100% success rate answering local diagnostic queries when the network interface is disabled. | Running the local-only subset of the test suite with the network interface down. |
+
 
 ---
 
