@@ -61,9 +61,10 @@ It uses an autonomous **ReAct orchestration loop** to:
    - **Required**: Add your `OPENAI_API_KEY=your_key_here`.
    - **Optional (Kernel Docs)**: Set `KERNEL_DOCS_PATH` to your documentation folder. 
      *   **Option 1 (System Package)**: `sudo apt install linux-doc` (the path is usually `/usr/share/doc/linux-doc/Documentation`).
-     *   **Option 2 (Manual Clone)**: Use this if the system package is missing:
+     *   **Option 2 (Manual Clone)**: Use this if the system package is missing. This command will dynamically fetch the documentation for your currently running kernel version:
          ```bash
-         git clone --depth 1 --filter=blob:none --sparse https://github.com/torvalds/linux.git kernel-source
+         KERNEL_VERSION=$(uname -r | cut -d. -f1,2)
+         git clone --depth 1 --branch v${KERNEL_VERSION} --filter=blob:none --sparse https://github.com/torvalds/linux.git kernel-source
          cd kernel-source && git sparse-checkout set Documentation
          ```
 

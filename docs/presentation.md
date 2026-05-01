@@ -1,0 +1,155 @@
+---
+marp: true
+theme: default
+class: lead
+paginate: true
+backgroundColor: #ffffff
+style: |
+  section {
+    font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+  h1 {
+    color: #2c3e50;
+    margin-bottom: 0.1em;
+  }
+  h2 {
+    color: #34495e;
+    border-bottom: 2px solid #ecf0f1;
+    padding-bottom: 10px;
+  }
+  h3 {
+    color: #7f8c8d;
+    font-weight: 400;
+    margin-top: 0;
+  }
+  code {
+    background-color: #f4f6f8;
+    color: #e74c3c;
+    padding: 2px 5px;
+    border-radius: 4px;
+  }
+---
+
+# SysAgent
+### AI-Powered Linux Diagnostic Assistant
+
+**Lena Helo**
+Software Engineer
+
+---
+
+## Elevator Pitch
+
+SysAgent is an AI-native Linux diagnostic agent that turns raw system telemetry into expert-level insight through natural language — right in your terminal 
+
+---
+
+## The Problem: Linux Troubleshooting is Tedious
+
+- **Complex Tooling**: Requires memorizing esoteric flags for tools like `ps`, `top`, `dmesg`, and `journalctl`.
+- **Information Overload**: Raw telemetry provides data, but lacks synthesis and interpretation.
+- **Expertise Dependency**: Junior engineers cannot act independently; senior engineers are interruption-taxed.
+- **Disconnected Context**: Engineers spend 20–40% of diagnostic time reading docs in a browser instead of acting in the terminal.
+
+---
+
+## The Solution: SysAgent
+
+SysAgent autonomously gathers live system telemetry and cross-references it with official Linux kernel documentation to give you actionable, context-aware diagnostic advice—all without leaving the command line.
+
+- 🧑‍💻 **Virtual IT Specialist**: Guides the user step-by-step using natural language to solve complex system problems.
+
+---
+
+## Core Capabilities
+
+- 🧠 **ReAct Orchestration**: The agent thinks, observes, and acts in a continuous loop until it finds the root cause.
+- 📊 **Live Telemetry**: Executes actual read-only system commands (CPU, memory, logs) to understand the *current* system state.
+- 📚 **Grounded Diagnostics (RAG)**: Retrieves context from an indexed database of official Linux kernel documentation and man pages.
+
+---
+
+## How it Works: Architecture
+
+1. **User Query**: Engineer asks a natural language question.
+2. **ReAct Loop (LLM)**: SysAgent decides which tools to run using OpenAI.
+3. **OS Layer**: Safely executes read-only data-gathering commands (e.g., `ps aux`).
+4. **Vector DB Retrieval**: Queries a local ChromaDB for relevant kernel docs and man pages.
+5. **Final Output**: Synthesizes the live data and docs into a structured report.
+
+---
+
+## Under the Hood: The ReAct Engine
+
+*SysAgent is not a simple chatbot. It uses an autonomous reasoning loop to formulate an execution plan, run system tools, and evaluate the results iteratively until the root cause is found.*
+
+```python
+for step in range(MAX_STEPS):
+    response = llm.chat(messages, tools=TOOL_SCHEMAS)
+    
+    if response.finish_reason == "stop":
+        return response.content # Final Answer
+        
+    if response.finish_reason == "tool_calls":
+        for call in response.tool_calls:
+            tool_fn = TOOL_DISPATCHER[call.name] # Secure mapping
+            result = tool_fn(**call.arguments)
+            messages.append({"role": "tool", "content": json.dumps(result)})
+```
+
+---
+
+## Under the Hood: Safe Telemetry
+
+*A major concern with AI agents is security. SysAgent does not execute arbitrary `bash` commands. It is strictly sandboxed to predefined, read-only Python functions that gracefully handle errors.*
+
+```python
+def get_system_metrics() -> dict:
+    try:
+        # We use secure Python libraries, not raw bash execution
+        return {
+            "cpu_percent": psutil.cpu_percent(interval=1),
+            "memory_percent": psutil.virtual_memory().percent
+        }
+    except Exception as e:
+        # Never crash the loop; let the LLM reason about the error
+        return {"error": str(e)}
+```
+
+---
+
+## Demo: SysAgent in Action
+
+<!-- Remember: Use an animated GIF so it exports perfectly to PowerPoint! -->
+![SysAgent Demo](demo.gif)
+
+*SysAgent autonomously diagnosing a high-CPU process and citing documentation.*
+
+---
+
+## Project Status & Roadmap
+
+SysAgent is an actively evolving open-source project. 
+
+**✅ Completed in v1:**
+- Core ReAct loop and system telemetry tools.
+- Vector database integration for Linux kernel docs & man pages.
+- Robust context management and CLI experience.
+
+**🚧 In Progress / Next Up:**
+- **Rich Terminal UI**: Structured tables and color-coded panels.
+- **Local LLM Support**: Privacy-first, air-gapped execution via Ollama/vLLM.
+- **Proactive Audits**: Automated security posture reviews based on CVEs.
+
+---
+
+## Thank You
+
+**SysAgent: AI-Powered Linux Diagnostic Assistant**
+
+*Code & Documentation:*
+[github.com/LenaHelo/sysagent](https://github.com/LenaHelo/sysagent)
+
+*Questions?*
+
+---
