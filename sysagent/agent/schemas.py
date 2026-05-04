@@ -112,5 +112,17 @@ SYSAGENT_TOOL_SCHEMAS = [
                 "required": ["command_name"]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_ubuntu_cves",
+            "description": "Queries the Ubuntu Security API to find unpatched High and Critical CVEs for the host's exact running kernel version. Use this to determine if the system is vulnerable to known, severe security issues.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
     }
 ]

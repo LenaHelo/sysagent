@@ -311,3 +311,241 @@ def check_command_exists(command_name: str) -> dict:
         }
     except Exception as e:
         return {"error": f"check_command_exists failed: {e}"}
+
+
+# ---------------------------------------------------------------------------
+# Private Helper: Paginated CVE Fetch
+# ---------------------------------------------------------------------------
+
+def _fetch_paginated_cves(source_package: str, priority: str) -> list:
+    """
+    Fetches all CVEs from the Ubuntu Security API for a given source package
+    and priority level, handling pagination automatically.
+
+    Args:
+        source_package: Ubuntu source package name (e.g., 'linux', 'linux-hwe-6.8').
+        priority:       Severity level — 'high' or 'critical'.
+
+    Returns:
+        A flat list of raw CVE dicts from the API.
+
+    Raises:
+        RuntimeError: If the very first API page fails (network error, timeout,
+                      or bad response). Mid-pagination errors are tolerated —
+                      we return whatever we already collected.
+    """
+    import requests
+
+    BASE_URL = "https://ubuntu.com/security/cves.json"
+    all_cves = []
+    offset = 0
+
+    while True:
+        try:
+            response = requests.get(
+                BASE_URL,
+                params={
+                    "package":  source_package,
+                    "priority": priority,
+                    "offset":   offset,
+                },
+                timeout=15,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except Exception as e:
+            if offset == 0:
+                # First page failed — we have nothing. Propagate as a clear error.
+                raise RuntimeError(
+                    f"Ubuntu Security API unreachable for package='{source_package}' "
+                    f"priority='{priority}': {e}"
+                ) from e
+            # Mid-pagination failure — return what we already have.
+            break
+
+        page_cves = data.get("cves", [])
+        all_cves.extend(page_cves)
+
+        total_results = data.get("total_results", 0)
+        offset += len(page_cves)
+
+        # Stop when we've collected everything or the server returned an empty page
+        if offset >= total_results or not page_cves:
+            break
+
+    return all_cves
+
+
+# ---------------------------------------------------------------------------
+# Tool 6: Ubuntu CVE Check
+# ---------------------------------------------------------------------------
+
+def check_ubuntu_cves() -> dict:
+    """
+    Queries the Ubuntu Security API for unpatched High and Critical CVEs
+    affecting the host's currently running kernel.
+
+    Steps:
+      1. Identifies the host's kernel version, Ubuntu release codename, and
+         the upstream source package that built the running kernel binary.
+      2. Fetches all High + Critical CVEs for that source package via a
+         paginated API loop.
+      3. Filters results: only 'needed' (no patch exists) and 'released'
+         (patch exists but may not be installed) statuses are surfaced.
+         For 'released' CVEs, checks locally whether a kernel upgrade is
+         pending via 'apt list --upgradable'. If no upgrade is pending, the
+         patch is already installed and the CVE is silently discarded.
+      4. Returns a concise, LLM-ready summary dict.
+
+    Note: Requires a Debian/Ubuntu system with dpkg, lsb_release, and apt.
+    """
+    import requests
+
+    # --- Step 1: Identify host context ---
+    try:
+        kernel_version = subprocess.check_output(
+            ["uname", "-r"], text=True, timeout=5
+        ).strip()
+    except Exception as e:
+        return {"error": f"check_ubuntu_cves: could not read kernel version: {e}"}
+
+    try:
+        os_codename = subprocess.check_output(
+            ["lsb_release", "-cs"], text=True, timeout=5
+        ).strip()
+    except FileNotFoundError:
+        return {"error": "check_ubuntu_cves: lsb_release not found. This tool requires an Ubuntu/Debian system."}
+    except Exception as e:
+        return {"error": f"check_ubuntu_cves: could not read OS codename: {e}"}
+
+    try:
+        # "dpkg -S /boot/vmlinuz-6.8.0-110-generic" →
+        # "linux-image-6.8.0-110-generic: /boot/vmlinuz-6.8.0-110-generic"
+        dpkg_out = subprocess.check_output(
+            ["dpkg", "-S", f"/boot/vmlinuz-{kernel_version}"],
+            text=True, stderr=subprocess.DEVNULL, timeout=5
+        ).strip()
+        binary_package = dpkg_out.split(":")[0].strip()
+
+        # Resolve binary package → source package name
+        # e.g. "linux-image-6.8.0-110-generic" → "linux" or "linux-hwe-6.8"
+        source_package = subprocess.check_output(
+            ["dpkg-query", "-f=${source:Package}", "-W", binary_package],
+            text=True, timeout=5
+        ).strip()
+
+        # dpkg-query returns empty string if the Source field is absent,
+        # which means the binary package IS the source package.
+        if not source_package:
+            source_package = binary_package
+
+        # The Ubuntu API tracks vulnerabilities under the base kernel package
+        # (e.g., 'linux' or 'linux-hwe-6.8'). If the kernel is signed for Secure Boot,
+        # dpkg reports 'linux-signed' or 'linux-hwe-6.8-signed'. The API rejects 
+        # '-signed' packages with a 422 error, so we must strip the suffix.
+        if source_package.endswith("-signed"):
+            source_package = source_package[:-7]
+
+    except FileNotFoundError:
+        return {"error": "check_ubuntu_cves: dpkg not found. This tool requires a Debian/Ubuntu system."}
+    except Exception as e:
+        return {"error": f"check_ubuntu_cves: could not resolve kernel source package: {e}"}
+
+    # --- Step 2: Fetch all High and Critical CVEs (paginated) ---
+    try:
+        all_cves = (
+            _fetch_paginated_cves(source_package, "high") +
+            _fetch_paginated_cves(source_package, "critical")
+        )
+    except RuntimeError as e:
+        return {"error": f"check_ubuntu_cves: API call failed — {e}"}
+
+    if not all_cves:
+        return {
+            "kernel_version":      kernel_version,
+            "os_codename":         os_codename,
+            "source_package":      source_package,
+            "total_vulnerabilities": 0,
+            "vulnerabilities":     [],
+            "note": "Ubuntu Security API returned no High or Critical CVEs for this kernel, or the API was unreachable.",
+        }
+
+    # --- Step 3: Check locally if a kernel upgrade is pending ---
+    # This is used to classify 'released' CVEs: if Ubuntu published a fix
+    # but the user hasn't run 'apt upgrade', they are still exposed.
+    try:
+        upgradable_out = subprocess.check_output(
+            ["apt", "list", "--upgradable"],
+            text=True, stderr=subprocess.DEVNULL, timeout=15
+        )
+        kernel_upgrade_pending = any(
+            "linux-image" in line
+            for line in upgradable_out.splitlines()
+        )
+    except Exception:
+        # Can't determine — report 'released' CVEs conservatively
+        kernel_upgrade_pending = None
+
+    # --- Step 4: Filter CVEs by codename and patch status ---
+    vulnerabilities = []
+
+    for cve in all_cves:
+        cve_id      = cve.get("id", "Unknown")
+        priority    = cve.get("priority", "unknown")
+        description = cve.get("description", "No description available.")[:300]
+
+        # The API returns all packages affected by this CVE.
+        # We only care about our source package.
+        for pkg in cve.get("packages", []):
+            if pkg.get("name") != source_package:
+                continue
+
+            # Inside that package, find the status row for our OS release.
+            for status_entry in pkg.get("statuses", []):
+                if status_entry.get("release_codename") != os_codename:
+                    continue
+
+                status = status_entry.get("status")
+
+                if status == "needed":
+                    vulnerabilities.append({
+                        "cve_id":       cve_id,
+                        "priority":     priority.upper(),
+                        "description":  description,
+                        "patch_status": "No patch released by Ubuntu yet.",
+                        "action":       "Monitor Ubuntu Security Notices (https://ubuntu.com/security/notices) for updates.",
+                    })
+
+                elif status == "released":
+                    if kernel_upgrade_pending is True:
+                        vulnerabilities.append({
+                            "cve_id":       cve_id,
+                            "priority":     priority.upper(),
+                            "description":  description,
+                            "patch_status": "Patch released by Ubuntu but NOT yet installed on this machine.",
+                            "action":       "Run: sudo apt update && sudo apt upgrade",
+                        })
+                    elif kernel_upgrade_pending is False:
+                        # No pending kernel upgrade → patch is already installed. Safe.
+                        pass
+                    else:
+                        # Could not determine upgrade state — report conservatively.
+                        vulnerabilities.append({
+                            "cve_id":       cve_id,
+                            "priority":     priority.upper(),
+                            "description":  description,
+                            "patch_status": "Patch released by Ubuntu. Install status could not be determined.",
+                            "action":       "Run: sudo apt update && sudo apt upgrade to ensure the fix is applied.",
+                        })
+
+                # All other statuses (DNE, ignored, deferred, needs-triage) are silently discarded.
+                break  # Found our codename entry — no need to scan further statuses.
+            break  # Found our source package — no need to scan further packages.
+
+    return {
+        "kernel_version":        kernel_version,
+        "os_codename":           os_codename,
+        "source_package":        source_package,
+        "total_vulnerabilities": len(vulnerabilities),
+        "vulnerabilities":       vulnerabilities,
+    }

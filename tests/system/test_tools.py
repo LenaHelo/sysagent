@@ -335,7 +335,7 @@ class TestCheckCommandExists:
 # JSON Serializability Contract
 # ===========================================================================
 
-def test_all_tools_are_json_serializable():
+def test_all_tools_are_json_serializable(monkeypatch):
     """
     Contract test: every tool's output must be serializable to JSON.
 
@@ -346,12 +346,22 @@ def test_all_tools_are_json_serializable():
 
     This test catches that class of bug at the tools layer, not in production.
     """
+    from sysagent.system.tools import check_ubuntu_cves
+    import requests
+
+    # Mock requests.get so check_ubuntu_cves runs offline and instantly
+    monkeypatch.setattr(requests, "get", lambda *a, **k: type('obj', (object,), {
+        'raise_for_status': lambda self: None,
+        'json': lambda self: {"total_results": 0, "cves": []}
+    })())
+
     results = [
         ("get_system_metrics",     get_system_metrics()),
         ("get_top_processes(cpu)",  get_top_processes(sort_by="cpu", limit=3)),
         ("get_top_processes(mem)",  get_top_processes(sort_by="memory", limit=3)),
         ("read_journal_tail",       read_journal_tail(lines=5)),
         ("check_command_exists(ls)", check_command_exists("ls")),
+        ("check_ubuntu_cves",       check_ubuntu_cves()),
     ]
     for tool_name, result in results:
         try:
@@ -414,3 +424,176 @@ def test_query_knowledge_base_empty_query_returns_error():
     """An empty or whitespace-only query must return a structured error dict."""
     result = query_knowledge_base("   ")
     assert "error" in result
+
+
+# ===========================================================================
+# check_ubuntu_cves
+# ===========================================================================
+
+class TestCheckUbuntuCves:
+
+    @pytest.fixture
+    def mock_os_commands(self, monkeypatch):
+        """Mocks the core OS commands so tests can run safely offline."""
+        def mock_check_output(cmd, *args, **kwargs):
+            if cmd == ["uname", "-r"]:
+                return "6.8.0-110-generic\n"
+            elif cmd == ["lsb_release", "-cs"]:
+                return "noble\n"
+            elif cmd[0] == "dpkg" and cmd[1] == "-S":
+                return "linux-image-6.8.0-110-generic: /boot/vmlinuz-6.8.0-110-generic\n"
+            elif cmd[0] == "dpkg-query":
+                return "linux-signed\n"
+            elif cmd[:2] == ["apt", "list"]:
+                return "Listing...\nlinux-image-6.8.0-111-generic/noble-updates 6.8.0-111.111 amd64 [upgradable from: 6.8.0-110.110]\n"
+            raise ValueError(f"Unexpected mock command: {cmd}")
+        
+        monkeypatch.setattr(subprocess, "check_output", mock_check_output)
+
+    def test_happy_path(self, mock_os_commands, monkeypatch):
+        from sysagent.system.tools import check_ubuntu_cves
+        import requests
+
+        class MockResponse:
+            def __init__(self, json_data):
+                self._json_data = json_data
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return self._json_data
+
+        def mock_get(*args, **kwargs):
+            return MockResponse({
+                "total_results": 2,
+                "cves": [
+                    {
+                        "id": "CVE-2023-1111",
+                        "priority": "high",
+                        "description": "A needed patch.",
+                        "packages": [{
+                            "name": "linux",
+                            "statuses": [{"release_codename": "noble", "status": "needed"}]
+                        }]
+                    },
+                    {
+                        "id": "CVE-2023-2222",
+                        "priority": "critical",
+                        "description": "A released patch.",
+                        "packages": [{
+                            "name": "linux",
+                            "statuses": [{"release_codename": "noble", "status": "released"}]
+                        }]
+                    },
+                    {
+                        "id": "CVE-2023-3333",
+                        "priority": "high",
+                        "description": "An ignored patch.",
+                        "packages": [{
+                            "name": "linux",
+                            "statuses": [{"release_codename": "noble", "status": "ignored"}]
+                        }]
+                    }
+                ]
+            })
+
+        monkeypatch.setattr(requests, "get", mock_get)
+
+        result = check_ubuntu_cves()
+        
+        assert "error" not in result
+        assert result["kernel_version"] == "6.8.0-110-generic"
+        assert result["os_codename"] == "noble"
+        assert result["source_package"] == "linux"  # tests -signed stripping
+        assert result["total_vulnerabilities"] >= 2
+        
+        # Verify the exact output filtering
+        cve_ids = [v["cve_id"] for v in result["vulnerabilities"]]
+        assert "CVE-2023-1111" in cve_ids # needed
+        assert "CVE-2023-2222" in cve_ids # released (with pending upgrade mocked)
+        assert "CVE-2023-3333" not in cve_ids # ignored
+
+    def test_pagination_logic(self, monkeypatch):
+        from sysagent.system.tools import _fetch_paginated_cves
+        import requests
+
+        call_count = 0
+        def mock_get(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return type('obj', (object,), {
+                    'raise_for_status': lambda self: None,
+                    'json': lambda self: {
+                        "total_results": 2,
+                        "cves": [{"id": "CVE-PAGE1"}]
+                    }
+                })()
+            else:
+                return type('obj', (object,), {
+                    'raise_for_status': lambda self: None,
+                    'json': lambda self: {
+                        "total_results": 2,
+                        "cves": [{"id": "CVE-PAGE2"}]
+                    }
+                })()
+
+        monkeypatch.setattr(requests, "get", mock_get)
+        
+        cves = _fetch_paginated_cves("linux", "high")
+        assert len(cves) == 2
+        assert cves[0]["id"] == "CVE-PAGE1"
+        assert cves[1]["id"] == "CVE-PAGE2"
+        assert call_count == 2
+
+    def test_api_first_page_failure(self, mock_os_commands, monkeypatch):
+        from sysagent.system.tools import check_ubuntu_cves
+        import requests
+
+        def mock_get(*args, **kwargs):
+            raise requests.exceptions.Timeout("Connection timed out")
+
+        monkeypatch.setattr(requests, "get", mock_get)
+        
+        result = check_ubuntu_cves()
+        assert "error" in result
+        assert "API call failed" in result["error"]
+        assert "unreachable" in result["error"]
+
+    def test_api_mid_pagination_failure(self, monkeypatch):
+        from sysagent.system.tools import _fetch_paginated_cves
+        import requests
+
+        call_count = 0
+        def mock_get(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return type('obj', (object,), {
+                    'raise_for_status': lambda self: None,
+                    'json': lambda self: {
+                        "total_results": 5,
+                        "cves": [{"id": "CVE-PAGE1"}]
+                    }
+                })()
+            else:
+                raise requests.exceptions.Timeout("Connection timed out")
+
+        monkeypatch.setattr(requests, "get", mock_get)
+        
+        # It should gracefully return what it got from page 1 without raising
+        cves = _fetch_paginated_cves("linux", "high")
+        assert len(cves) == 1
+        assert cves[0]["id"] == "CVE-PAGE1"
+
+    def test_non_ubuntu_os_graceful_exit(self, monkeypatch):
+        from sysagent.system.tools import check_ubuntu_cves
+        import subprocess
+        
+        def mock_check_output(*args, **kwargs):
+            raise FileNotFoundError("lsb_release not found")
+            
+        monkeypatch.setattr(subprocess, "check_output", mock_check_output)
+        
+        result = check_ubuntu_cves()
+        assert "error" in result
+        assert "could not read kernel version" in result["error"]

@@ -24,6 +24,7 @@ from sysagent.system.tools import (
     query_knowledge_base,
     read_journal_tail,
     check_command_exists,
+    check_ubuntu_cves,
 )
 
 # ---------------------------------------------------------------------------
@@ -67,8 +68,12 @@ HOW TO OPERATE:
    - If the documentation does not contain the answer, you MUST state: "I couldn't find local documentation for this."
    - After stating that, you MAY use your pre-trained knowledge ONLY for universally known, fundamental Linux concepts (e.g., standard commands, networking protocols, generic memory management like 'swap' or 'oom killer').
    - For ANY named kernel module, specific subsystem, or advanced feature, if the local documentation provides ZERO information about it, you MUST NOT explain it. State exactly: "I do not have documentation for this specific module/subsystem, and I will not guess its behavior."
-4. Be concise and precise. You are talking to engineers, not end-users.
-5. INTERACTIVE TROUBLESHOOTING:
+4. For ANY question about SECURITY, VULNERABILITIES, or whether the system is up to date:
+   use check_ubuntu_cves. It will return the exact CVEs affecting this machine's kernel,
+   their severity, and whether a patch is available. NEVER speculate about CVEs from memory.
+   Always call this tool for security posture questions.
+5. Be concise and precise. You are talking to engineers, not end-users.
+6. INTERACTIVE TROUBLESHOOTING:
    - When helping a user troubleshoot an issue (e.g. broken hardware, network issue, software failure), DO NOT just dump a huge list of commands for them to run on their own.
    - Instead, act like an expert IT consultant: provide a brief overview of what you think the problem might be, and then offer to walk them through it step-by-step.
    - Before asking a user to run a command or tool (especially third-party utilities like 'htop', 'iostat', 'bluetoothctl'), ALWAYS use check_command_exists to verify it is installed on their system. DO NOT check the same command more than once.
@@ -90,6 +95,7 @@ TOOL_DISPATCHER = {
     "read_journal_tail": read_journal_tail,
     "query_knowledge_base": query_knowledge_base,
     "check_command_exists": check_command_exists,
+    "check_ubuntu_cves": check_ubuntu_cves,
 }
 
 
