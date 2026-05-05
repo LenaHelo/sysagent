@@ -539,20 +539,23 @@ class TestCheckUbuntuCves:
 
         monkeypatch.setattr(requests, "get", mock_get)
         
-        cves = _fetch_paginated_cves("linux", "high")
+        cves, warn = _fetch_paginated_cves("linux", "high")
         assert len(cves) == 2
         assert cves[0]["id"] == "CVE-PAGE1"
         assert cves[1]["id"] == "CVE-PAGE2"
         assert call_count == 2
+        assert warn is False
 
     def test_api_first_page_failure(self, mock_os_commands, monkeypatch):
         from sysagent.system.tools import check_ubuntu_cves
         import requests
+        import time
 
         def mock_get(*args, **kwargs):
             raise requests.exceptions.Timeout("Connection timed out")
 
         monkeypatch.setattr(requests, "get", mock_get)
+        monkeypatch.setattr(time, "sleep", lambda x: None)
         
         result = check_ubuntu_cves()
         assert "error" in result
@@ -562,28 +565,32 @@ class TestCheckUbuntuCves:
     def test_api_mid_pagination_failure(self, monkeypatch):
         from sysagent.system.tools import _fetch_paginated_cves
         import requests
+        import time
 
         call_count = 0
         def mock_get(*args, **kwargs):
             nonlocal call_count
             call_count += 1
-            if call_count == 1:
-                return type('obj', (object,), {
-                    'raise_for_status': lambda self: None,
-                    'json': lambda self: {
-                        "total_results": 5,
-                        "cves": [{"id": "CVE-PAGE1"}]
-                    }
-                })()
-            else:
-                raise requests.exceptions.Timeout("Connection timed out")
+            if call_count <= 2: # attempt 1, attempt 2 (both fail on retry for page 2? No wait, call_count is per get)
+                if call_count == 1:
+                    # Page 1 succeeds
+                    return type('obj', (object,), {
+                        'raise_for_status': lambda self: None,
+                        'json': lambda self: {
+                            "total_results": 5,
+                            "cves": [{"id": "CVE-PAGE1"}]
+                        }
+                    })()
+            raise requests.exceptions.Timeout("Connection timed out")
 
         monkeypatch.setattr(requests, "get", mock_get)
+        monkeypatch.setattr(time, "sleep", lambda x: None)
         
         # It should gracefully return what it got from page 1 without raising
-        cves = _fetch_paginated_cves("linux", "high")
+        cves, warn = _fetch_paginated_cves("linux", "high")
         assert len(cves) == 1
         assert cves[0]["id"] == "CVE-PAGE1"
+        assert warn is True
 
     def test_non_ubuntu_os_graceful_exit(self, monkeypatch):
         from sysagent.system.tools import check_ubuntu_cves

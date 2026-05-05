@@ -341,38 +341,39 @@ def _fetch_paginated_cves(source_package: str, priority: str) -> list:
     BASE_URL = "https://ubuntu.com/security/cves.json"
     all_cves = []
     offset = 0
+    global_retries_left = 1
+    partial_warning = False
 
     while True:
-        data = None
-        last_error = None
-        for attempt in range(2):
-            try:
-                response = requests.get(
-                    BASE_URL,
-                    params={
-                        "package":  source_package,
-                        "priority": priority,
-                        "offset":   offset,
-                    },
-                    timeout=15,
-                )
-                response.raise_for_status()
-                data = response.json()
-                break  # Success! Break out of the retry loop.
-            except Exception as e:
-                last_error = e
-                if attempt == 0:
-                    print(f"\n[SysAgent] Ubuntu Security API connection slow/failed. Trying once more...", file=sys.stderr)
-                    time.sleep(2)
-
-        if data is None:
+        try:
+            response = requests.get(
+                BASE_URL,
+                params={
+                    "package":  source_package,
+                    "priority": priority,
+                    "offset":   offset,
+                },
+                timeout=15,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except Exception as e:
+            if global_retries_left > 0:
+                global_retries_left -= 1
+                page_num = (offset // 20) + 1
+                print(f"\n[SysAgent] Ubuntu Security API connection slow (fetching page {page_num}). Trying once more...\n", file=sys.stderr)
+                time.sleep(2)
+                continue
+            
+            # Exhausted retries
             if offset == 0:
-                # First page failed on both attempts. Propagate as a clear error.
                 raise RuntimeError(
                     f"Ubuntu Security API unreachable for package='{source_package}' "
-                    f"priority='{priority}': {last_error}"
-                ) from last_error
-            # Mid-pagination failure after retries — return what we already have.
+                    f"priority='{priority}': {e}"
+                ) from e
+            
+            # Mid-pagination failure — return what we already have with a warning.
+            partial_warning = True
             break
 
         page_cves = data.get("cves", [])
@@ -385,7 +386,7 @@ def _fetch_paginated_cves(source_package: str, priority: str) -> list:
         if offset >= total_results or not page_cves:
             break
 
-    return all_cves
+    return all_cves, partial_warning
 
 
 # ---------------------------------------------------------------------------
@@ -463,16 +464,23 @@ def check_ubuntu_cves() -> dict:
     except Exception as e:
         return {"error": f"check_ubuntu_cves: could not resolve kernel source package: {e}"}
 
-    # --- Step 2: Fetch all High and Critical CVEs (paginated) ---
+    import concurrent.futures
+
+    # --- Step 2: Fetch all High and Critical CVEs (paginated) concurrently ---
     try:
-        all_cves = (
-            _fetch_paginated_cves(source_package, "high") +
-            _fetch_paginated_cves(source_package, "critical")
-        )
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            future_high = executor.submit(_fetch_paginated_cves, source_package, "high")
+            future_crit = executor.submit(_fetch_paginated_cves, source_package, "critical")
+            
+            high_cves, high_warn = future_high.result()
+            critical_cves, crit_warn = future_crit.result()
+            
+        all_raw_cves = high_cves + critical_cves
+        had_partial_warning = high_warn or crit_warn
     except RuntimeError as e:
         return {"error": f"check_ubuntu_cves: API call failed — {e}"}
 
-    if not all_cves:
+    if not all_raw_cves:
         return {
             "kernel_version":      kernel_version,
             "os_codename":         os_codename,
@@ -501,7 +509,7 @@ def check_ubuntu_cves() -> dict:
     # --- Step 4: Filter CVEs by codename and patch status ---
     vulnerabilities = []
 
-    for cve in all_cves:
+    for cve in all_raw_cves:
         cve_id      = cve.get("id", "Unknown")
         priority    = cve.get("priority", "unknown")
         description = cve.get("description", "No description available.")[:300]
@@ -554,10 +562,15 @@ def check_ubuntu_cves() -> dict:
                 break  # Found our codename entry — no need to scan further statuses.
             break  # Found our source package — no need to scan further packages.
 
-    return {
+    result = {
         "kernel_version":        kernel_version,
         "os_codename":           os_codename,
         "source_package":        source_package,
         "total_vulnerabilities": len(vulnerabilities),
         "vulnerabilities":       vulnerabilities,
     }
+    
+    if had_partial_warning:
+        result["warning"] = "Partial data returned due to API timeouts."
+        
+    return result
