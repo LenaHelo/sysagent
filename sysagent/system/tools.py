@@ -335,32 +335,44 @@ def _fetch_paginated_cves(source_package: str, priority: str) -> list:
                       we return whatever we already collected.
     """
     import requests
+    import time
+    import sys
 
     BASE_URL = "https://ubuntu.com/security/cves.json"
     all_cves = []
     offset = 0
 
     while True:
-        try:
-            response = requests.get(
-                BASE_URL,
-                params={
-                    "package":  source_package,
-                    "priority": priority,
-                    "offset":   offset,
-                },
-                timeout=15,
-            )
-            response.raise_for_status()
-            data = response.json()
-        except Exception as e:
+        data = None
+        last_error = None
+        for attempt in range(2):
+            try:
+                response = requests.get(
+                    BASE_URL,
+                    params={
+                        "package":  source_package,
+                        "priority": priority,
+                        "offset":   offset,
+                    },
+                    timeout=15,
+                )
+                response.raise_for_status()
+                data = response.json()
+                break  # Success! Break out of the retry loop.
+            except Exception as e:
+                last_error = e
+                if attempt == 0:
+                    print(f"\n[SysAgent] Ubuntu Security API connection slow/failed. Trying once more...", file=sys.stderr)
+                    time.sleep(2)
+
+        if data is None:
             if offset == 0:
-                # First page failed — we have nothing. Propagate as a clear error.
+                # First page failed on both attempts. Propagate as a clear error.
                 raise RuntimeError(
                     f"Ubuntu Security API unreachable for package='{source_package}' "
-                    f"priority='{priority}': {e}"
-                ) from e
-            # Mid-pagination failure — return what we already have.
+                    f"priority='{priority}': {last_error}"
+                ) from last_error
+            # Mid-pagination failure after retries — return what we already have.
             break
 
         page_cves = data.get("cves", [])
