@@ -17,6 +17,7 @@ It uses an autonomous **ReAct orchestration loop** to:
 - **Agentic Reasoning Loop**: An autonomous agent that decides which data to collect and which leads to follow to answer your query.
 - **Kernel Documentation RAG**: Grounded diagnostics using a local vector store indexed with Linux kernel docs and man pages.
 - **Grounded Diagnostics**: High-fidelity reports based on live system telemetry and official Linux documentation.
+- **Proactive Security Audits (Ubuntu Only)**: Autonomous CVE vulnerability scanning cross-referenced with live OS telemetry to identify unpatched risks using the Ubuntu Security API.
 
 
 
@@ -94,7 +95,6 @@ python3 -m sysagent.main -v  # or --verbose
 
 ## 🗺️ Roadmap
 - [ ] **Interactive Onboarding**: Automatically prompt for missing API keys and configuration on first boot so users don't have to manually edit `.env` files.
-- [ ] **Security Posture Review**: Integration with external security feeds to cross-reference live kernel versions with known CVEs and vulnerabilities.
 - [ ] **Packaging & Distribution**: Support for `pip install` to provide a global `sysagent` command and easier environment setup.
 - [ ] **Advanced System Inspection**: Integration of deeper diagnostic tools (e.g., `perf`, `strace`, or `ebpf`-based tracing) for advanced performance and behavioral analysis.
 - [ ] **Rich Terminal UI**: Move beyond plain text with structured tables, color-coded status panels, and high-scannability diagnostic reports.

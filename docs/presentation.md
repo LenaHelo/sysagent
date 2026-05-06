@@ -66,6 +66,7 @@ SysAgent autonomously gathers live system telemetry and cross-references it with
 - 🧠 **ReAct Orchestration**: The agent thinks, observes, and acts in a continuous loop until it finds the root cause.
 - 📊 **Live Telemetry**: Executes actual read-only system commands (CPU, memory, logs) to understand the *current* system state.
 - 📚 **Grounded Diagnostics (RAG)**: Retrieves context from an indexed database of official Linux kernel documentation and man pages.
+- 🛡️ **Proactive Security Audits (Ubuntu)**: Autonomous CVE vulnerability scanning cross-referenced with local package states.
 
 ---
 
@@ -127,19 +128,24 @@ def get_system_metrics() -> dict:
 
 ---
 
-## Project Status & Roadmap
+## Project Status (Completed in v1)
 
-SysAgent is an actively evolving open-source project. 
+SysAgent is an actively evolving open-source project.
 
-**✅ Completed in v1:**
-- Core ReAct loop and system telemetry tools.
-- Vector database integration for Linux kernel docs & man pages.
-- Robust context management and CLI experience.
+- **Core ReAct loop** and system telemetry tools.
+- **Vector database integration** for Linux kernel docs & man pages.
+- **Robust context management** and CLI experience.
+- **Proactive Security Audits**: Autonomous CVE vulnerability scans (Ubuntu only).
+
+---
+
+## Roadmap & Next Steps
 
 **🚧 In Progress / Next Up:**
-- **Rich Terminal UI**: Structured tables and color-coded panels.
-- **Local LLM Support**: Privacy-first, air-gapped execution via Ollama/vLLM.
-- **Proactive Audits**: Automated security posture reviews based on CVEs.
+- **Interactive Onboarding**: Automatically prompt for configuration on first boot.
+- **Packaging & Distribution**: Global `sysagent` command via `pip install`.
+- **Advanced System Inspection**: Integration of deep diagnostic tools (`perf`, `ebpf`).
+- **Rich Terminal UI**: Structured tables and color-coded status panels.
 
 ---
 

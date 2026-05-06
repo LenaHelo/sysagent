@@ -12,7 +12,8 @@ We built a robust API interaction layer that handles the complexities of Ubuntu'
 - **Source Resolution**: The tool uses `dpkg -S /boot/vmlinuz-$(uname -r)` and `dpkg-query` to dynamically resolve the exact source package of the running kernel (e.g., `linux-hwe-6.8`).
 - **Signature Wrapper Handling**: It automatically strips the `-signed` suffix from cryptographically signed kernels to ensure compatibility with Ubuntu's upstream security tracker.
 - **Paginated Fetching**: A generic `_fetch_paginated_cves()` helper loops through the Ubuntu Security API to ensure no vulnerabilities are silently truncated from the results page.
-- **False-Positive Filtering**: Instead of just reporting if Ubuntu *published* a patch, the tool runs `apt list --upgradable` locally. If Ubuntu published a patch but the user hasn't installed it yet, it correctly flags it as a risk. 
+- **False-Positive Filtering (The "Source of Truth")**: Instead of just reporting if Ubuntu *published* a patch, the tool runs `apt list --upgradable` locally. This is critical because security APIs only know what is *available*, not what is *installed*.
+    - **Logic**: If the Security API identifies a fix version (e.g., `.111`) and `apt list --upgradable` shows that package is waiting to be installed, SysAgent flags it as an active risk. If the package is *not* in the upgradable list, SysAgent assumes the user is already patched and silences the alert to avoid "old news" hallucinations.
 
 > [!TIP]
 > By filtering out low/negligible severity issues and discarding already-installed patches, the final output passed to the LLM is tiny (usually < 5 items). This completely protects the LLM context window from blowing up, keeping the agent fast and cheap to run!
