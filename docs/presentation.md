@@ -156,6 +156,10 @@ SysAgent is an actively evolving open-source project.
 *Code & Documentation:*
 [github.com/LenaHelo/sysagent](https://github.com/LenaHelo/sysagent)
 
+| GitHub Repository | Connect on LinkedIn |
+| :---: | :---: |
+| ![w:200 GitHub Repo](repo_qrcode.png) | ![w:200 LinkedIn Profile](linkedin_qrcode.png) |
+
 *Questions?*
 
 ---
