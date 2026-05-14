@@ -47,3 +47,10 @@ To make the agent more autonomous, fast, and resilient, we implemented several k
 - **Multithreading**: The `check_ubuntu_cves` tool was upgraded to use `concurrent.futures.ThreadPoolExecutor`. It now queries the Ubuntu API for "High" and "Critical" vulnerabilities simultaneously across two worker threads, effectively cutting the network latency in half.
 - **Global Fail-Fast Retry Limit**: The CVE tool's pagination logic was upgraded to use an autonomous retry loop with a strict *global* maximum of 1 retry across the entire transaction. This bounces back from standard 502/503 load-balancer drops while bounding the worst-case network latency. If the server keeps timing out, the tool "fails fast", returns the partial data it successfully downloaded, and attaches a warning flag. 
 - **AI Safety Warnings**: The LLM is instructed to explicitly pass this `partial_data_warning` flag to the user if retries are exhausted, avoiding any false sense of security.
+
+## Future Optimizations: API Timeout Handling
+To further improve the resilience of the Ubuntu Security API integration, the following upgrades are planned:
+1. **Move from Global Retries to Per-Page Retries**: Reset the retry counter for each new page offset, rather than sharing a single retry across the entire pagination loop.
+2. **Use `requests.Session` with `urllib3` Retries**: Replace the manual `while`/`try/except` logic with a mounted `HTTPAdapter` configured with `urllib3.util.Retry`. This automatically and cleanly handles timeouts, connection drops, and HTTP 429/5xx errors.
+3. **Exponential Backoff**: Configure the `Retry` object with a `backoff_factor` (e.g., wait 2s, 4s, 8s) to give the struggling Ubuntu server breathing room, replacing the fixed `time.sleep(2)`.
+4. **Connection Pooling**: By using `requests.Session()` across threads or loops, we can leverage HTTP Keep-Alive to reuse the underlying TCP/TLS connection, significantly reducing latency and the likelihood of timeout during paginated fetches.
