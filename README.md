@@ -18,6 +18,7 @@ It uses an autonomous **ReAct orchestration loop** to:
 - **Kernel Documentation RAG**: Grounded diagnostics using a local vector store indexed with Linux kernel docs and man pages.
 - **Grounded Diagnostics**: High-fidelity reports based on live system telemetry and official Linux documentation.
 - **Proactive Security Audits (Ubuntu Only)**: Autonomous CVE vulnerability scanning cross-referenced with live OS telemetry to identify unpatched risks using the Ubuntu Security API.
+- **Headless Proactive Auditing**: Schedule SysAgent to run autonomously in the background via systemd and dispatch beautifully formatted diagnostic reports directly to Slack webhooks.
 
 
 
@@ -78,6 +79,57 @@ python3 -m sysagent.main
 # Verbose mode (shows agent's internal reasoning and tool calls)
 python3 -m sysagent.main -v  # or --verbose
 ```
+
+### Headless Proactive Auditing
+SysAgent can run autonomously in the background to perform scheduled health and security audits. It can forward these reports to external platforms.
+
+```bash
+# Run a headless audit and print the markdown report to stdout
+python3 -m sysagent.main --cron
+
+# Run a headless audit and send the report to Slack
+python3 -m sysagent.main --cron --notify slack
+```
+
+#### Scheduling with systemd
+To run SysAgent on a schedule (e.g., daily at 8:00 AM), we recommend using **user-level systemd timers** for better logging and error handling without requiring root privileges.
+
+1. **Create the systemd user directory** (if it doesn't exist):
+   ```bash
+   mkdir -p ~/.config/systemd/user/
+   ```
+
+2. **Create a Service File (`~/.config/systemd/user/sysagent.service`)**:
+   ```ini
+   [Unit]
+   Description=SysAgent Proactive Audit Service
+
+   [Service]
+   Type=oneshot
+   # Replace with the actual absolute path to your cloned repository
+   WorkingDirectory=/absolute/path/to/sysagent
+   ExecStart=/absolute/path/to/sysagent/.venv/bin/python -m sysagent.main --cron --notify slack
+   ```
+
+3. **Create a Timer File (`~/.config/systemd/user/sysagent.timer`)**:
+   ```ini
+   [Unit]
+   Description=Run SysAgent Proactive Audit Daily
+
+   [Timer]
+   OnCalendar=*-*-* 08:00:00
+   Persistent=true
+
+   [Install]
+   WantedBy=timers.target
+   ```
+
+4. **Enable and Start the Timer**:
+   ```bash
+   systemctl --user daemon-reload
+   systemctl --user enable --now sysagent.timer
+   ```
+   *(To ensure the timer runs even when you aren't logged in, run `loginctl enable-linger $USER`)*
 
 ## **📁 Project Structure**
 ```

@@ -55,3 +55,7 @@ LLM_MODEL = "gpt-4o-mini"
 # Maximum number of tool-call iterations in a single ReAct loop run.
 # Acts as a circuit breaker to prevent infinite loops.
 REACT_MAX_STEPS = 5
+
+# --- Notification Config ---
+# Webhook URL for pushing proactive audit reports to Slack.
+SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL", "").strip()

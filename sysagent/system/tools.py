@@ -361,7 +361,8 @@ def _fetch_paginated_cves(source_package: str, priority: str) -> list:
             if global_retries_left > 0:
                 global_retries_left -= 1
                 page_num = (offset // 20) + 1
-                print(f"\n[SysAgent] Ubuntu Security API connection slow (fetching page {page_num}). Trying once more...\n", file=sys.stderr)
+                if sys.stdout.isatty():
+                    print(f"\n[SysAgent] Ubuntu Security API connection slow (fetching page {page_num}). Trying once more...\n", file=sys.stderr)
                 time.sleep(2)
                 continue
             

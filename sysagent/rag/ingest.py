@@ -1,3 +1,4 @@
+import sys
 import os
 import json
 import hashlib
@@ -50,7 +51,7 @@ def ingest_all():
         try:
             pages = get_man_pages_in_section(section)
         except Exception as e:
-            print(f"Failed to scan section {section}: {e}")
+            print(f"Failed to scan section {section}: {e}", file=sys.stderr)
             continue
 
         print(f"Found {len(pages)} pages in section {source_name}")
@@ -99,7 +100,7 @@ def ingest_all():
                 save_manifest(manifest)
 
             except Exception as e:
-                print(f"Error processing {manifest_key}: {e}")
+                print(f"Error processing {manifest_key}: {e}", file=sys.stderr)
                 total_errors += 1
       
     # --- Kernel Documentation Ingestion Pass ---
@@ -155,7 +156,7 @@ def ingest_all():
                 save_manifest(manifest)
                 
             except Exception as e:
-                print(f"Error processing {manifest_key}: {e}")
+                print(f"Error processing {manifest_key}: {e}", file=sys.stderr)
                 total_errors += 1
     
     print("\n[Ingestion Complete]")

@@ -1,3 +1,4 @@
+import sys
 import os
 import subprocess
 import re
@@ -260,5 +261,5 @@ def extract_rst_text(filepath: Path) -> str:
         final_text = re.sub(r'\n{3,}', '\n\n', final_text)
         return final_text.strip()
     except Exception as e:
-        print(f"Failed to parse {filepath}: {e}")
+        print(f"Failed to parse {filepath}: {e}", file=sys.stderr)
         return ""

@@ -43,9 +43,18 @@ def main() -> None:
         action="store_true",
         help="Print each tool call as it executes (e.g. ⚙ Calling get_system_metrics()).",
     )
+    parser.add_argument(
+        "--cron",
+        action="store_true",
+        help="Run headlessly for scheduled audits without the interactive REPL.",
+    )
+    parser.add_argument(
+        "--notify",
+        type=str,
+        choices=["slack"],
+        help="Where to push the scheduled audit report.",
+    )
     args = parser.parse_args()
-
-    print(BANNER)
 
     # The shared message history for this session.
     # Initialized once here and passed into every run_react_loop call,
@@ -66,6 +75,47 @@ def main() -> None:
     dynamic_prompt = f"You are SysAgent, running directly on {distro} (Kernel {kernel}).\n\n{REACT_SYSTEM_PROMPT}"
     
     messages = [{"role": "system", "content": dynamic_prompt}]
+
+    if args.cron:
+        print("Starting proactive audit...", file=sys.stderr)
+        
+        target_platform = args.notify if args.notify else "standard markdown"
+        audit_prompt = (
+            f"Perform a complete proactive system health check. Analyze current CPU, memory, "
+            f"load average, top processes, and unpatched kernel CVEs. Produce a concise "
+            f"Executive Summary report formatted specifically for {target_platform}. "
+            f"CRITICAL: DO NOT use markdown tables under any circumstances; use aligned code blocks or bulleted lists instead."
+        )
+        
+        try:
+            answer = run_react_loop(
+                query=audit_prompt,
+                verbose=args.verbose,
+                messages=messages,
+            )
+        except Exception as e:
+            answer = f"🚨 **SysAgent Critical Alert**\nScheduled audit failed to complete.\n**Error:** `{str(e)}`\n*Please investigate the host manually.*"
+            exit_code = 1
+        else:
+            exit_code = 0
+            
+        if not args.notify:
+            print("\n" + answer)
+            
+        if args.notify == "slack":
+            from sysagent.system.notifiers import send_slack_alert
+            print("Sending report to Slack...", file=sys.stderr)
+            try:
+                success = send_slack_alert(answer)
+                if not success:
+                    exit_code = 1
+            except ValueError as e:
+                print(f"Configuration Error: {e}", file=sys.stderr)
+                sys.exit(1)
+                
+        sys.exit(exit_code)
+
+    print(BANNER)
     session = PromptSession(multiline=True)
 
     while True:
