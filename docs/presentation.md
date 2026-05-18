@@ -67,6 +67,7 @@ SysAgent autonomously gathers live system telemetry and cross-references it with
 - 📊 **Live Telemetry**: Executes actual read-only system commands (CPU, memory, logs) to understand the *current* system state.
 - 📚 **Grounded Diagnostics (RAG)**: Retrieves context from an indexed database of official Linux kernel documentation and man pages.
 - 🛡️ **Proactive Security Audits (Ubuntu)**: Autonomous CVE vulnerability scanning cross-referenced with local package states.
+- ⏱️ **Scheduled Reporting**: Headless execution via systemd timers with automated alerts sent to Slack.
 
 ---
 
@@ -84,19 +85,6 @@ SysAgent autonomously gathers live system telemetry and cross-references it with
 
 *SysAgent is not a simple chatbot. It uses an autonomous reasoning loop to formulate an execution plan, run system tools, and evaluate the results iteratively until the root cause is found.*
 
-```python
-for step in range(MAX_STEPS):
-    response = llm.chat(messages, tools=TOOL_SCHEMAS)
-    
-    if response.finish_reason == "stop":
-        return response.content # Final Answer
-        
-    if response.finish_reason == "tool_calls":
-        for call in response.tool_calls:
-            tool_fn = TOOL_DISPATCHER[call.name] # Secure mapping
-            result = tool_fn(**call.arguments)
-            messages.append({"role": "tool", "content": json.dumps(result)})
-```
 
 ---
 
@@ -104,18 +92,7 @@ for step in range(MAX_STEPS):
 
 *A major concern with AI agents is security. SysAgent does not execute arbitrary `bash` commands. It is strictly sandboxed to predefined, read-only Python functions that gracefully handle errors.*
 
-```python
-def get_system_metrics() -> dict:
-    try:
-        # We use secure Python libraries, not raw bash execution
-        return {
-            "cpu_percent": psutil.cpu_percent(interval=1),
-            "memory_percent": psutil.virtual_memory().percent
-        }
-    except Exception as e:
-        # Never crash the loop; let the LLM reason about the error
-        return {"error": str(e)}
-```
+
 
 ---
 
@@ -136,6 +113,7 @@ SysAgent is an actively evolving open-source project.
 - **Vector database integration** for Linux kernel docs & man pages.
 - **Robust context management** and CLI experience.
 - **Proactive Security Audits**: Autonomous CVE vulnerability scans (Ubuntu only).
+- **Scheduled Headless Audits**: Automated reporting pipelines with Slack integration.
 
 ---
 

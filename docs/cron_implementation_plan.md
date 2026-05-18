@@ -80,3 +80,22 @@ Add a "Scheduled Audits (Systemd Timers)" section explaining how the user can ma
 ### Manual Verification
 - We will set up a test Slack/Discord webhook and trigger the agent manually via the CLI to verify formatting.
 - We will configure a test systemd timer to ensure the agent executes successfully in a background, non-TTY environment.
+
+## Phase 2: Discord Webhook Integration (Proposed)
+
+### Proposed Architecture
+
+1. **Configuration (`config.py`)**:
+   - We will read `DISCORD_WEBHOOK_URL` from the `.env` file, mirroring how the Slack URL is loaded.
+
+2. **Notifier Dispatcher (`notifiers.py`)**:
+   - We will add `send_discord_alert(text: str) -> bool`.
+   - The payload format for Discord is `{"content": text}`.
+   - **Important Constraint**: Discord has a strict 2000-character limit per webhook message. If the text exceeds this limit, we will truncate the string to 1996 characters and append `...` to avoid a 400 Bad Request error.
+
+3. **CLI Arguments (`main.py`)**:
+   - Update `--notify` choices to `["slack", "discord"]`.
+   - Update the routing logic so that if `args.notify == "discord"`, the `send_discord_alert()` function is executed instead of Slack.
+
+> [!IMPORTANT]
+>  Do you approve of the truncation approach for Discord's 2000-character limit, or would you prefer a chunking mechanism that sends multiple messages in sequence if the report is too long? For testing the pipeline, truncation is the simplest and safest method.
