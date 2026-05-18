@@ -83,6 +83,17 @@ python3 -m sysagent.main -v  # or --verbose
 ### Headless Proactive Auditing
 SysAgent can run autonomously in the background to perform scheduled health and security audits. It can forward these reports to external platforms.
 
+#### Setting up a Slack Webhook
+To receive reports in Slack, you need to configure an Incoming Webhook:
+1. Go to your Slack workspace and open the **App Directory**.
+2. Search for **Incoming WebHooks** and add it to your workspace.
+3. Choose the channel where you want SysAgent to post its reports.
+4. Copy the generated Webhook URL (it starts with `https://hooks.slack.com/services/...`).
+5. Open the `.env` file in the SysAgent directory and add your URL:
+   ```env
+   SLACK_WEBHOOK_URL="your_copied_url_here"
+   ```
+
 ```bash
 # Run a headless audit and print the markdown report to stdout
 python3 -m sysagent.main --cron
@@ -130,6 +141,11 @@ To run SysAgent on a schedule (e.g., daily at 8:00 AM), we recommend using **use
    systemctl --user enable --now sysagent.timer
    ```
    *(To ensure the timer runs even when you aren't logged in, run `loginctl enable-linger $USER`)*
+
+5. **Disable the Timer** (to stop receiving scheduled reports):
+   ```bash
+   systemctl --user disable --now sysagent.timer
+   ```
 
 ## **📁 Project Structure**
 ```
