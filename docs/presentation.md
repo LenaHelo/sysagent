@@ -114,6 +114,7 @@ SysAgent is an actively evolving open-source project.
 - **Robust context management** and CLI experience.
 - **Proactive Security Audits**: Autonomous CVE vulnerability scans (Ubuntu only).
 - **Scheduled Headless Audits**: Automated reporting pipelines with Slack integration.
+- **Native Global CLI**: Easy package distribution via `pipx` for seamless installation.
 
 ---
 
@@ -121,7 +122,6 @@ SysAgent is an actively evolving open-source project.
 
 **🚧 In Progress / Next Up:**
 - **Interactive Onboarding**: Automatically prompt for configuration on first boot.
-- **Packaging & Distribution**: Global `sysagent` command via `pip install`.
 - **Advanced System Inspection**: Integration of deep diagnostic tools (`perf`, `ebpf`).
 - **Rich Terminal UI**: Structured tables and color-coded status panels.
 

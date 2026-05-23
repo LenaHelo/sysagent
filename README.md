@@ -19,7 +19,7 @@ It uses an autonomous **ReAct orchestration loop** to:
 - **Grounded Diagnostics**: High-fidelity reports based on live system telemetry and official Linux documentation.
 - **Proactive Security Audits (Ubuntu Only)**: Autonomous CVE vulnerability scanning cross-referenced with live OS telemetry to identify unpatched risks using the Ubuntu Security API.
 - **Headless Proactive Auditing**: Schedule SysAgent to run autonomously in the background via systemd and dispatch beautifully formatted diagnostic reports directly to Slack webhooks.
-
+- **Native Global CLI**: Install seamlessly via `pipx` to run `sysagent` from anywhere on your system, without manually managing Python virtual environments.
 
 
 ## 🛠️ Tech Stack
@@ -37,22 +37,28 @@ It uses an autonomous **ReAct orchestration loop** to:
 - An OpenAI API Key.
 
 ### Installation
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/LenaHelo/sysagent.git
-   cd sysagent
-   ```
 
-2. **Create a virtual environment:**
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
+**Option 1: Global Installation via pipx (Recommended)**
+This is the recommended way to install SysAgent as a globally available terminal command without managing virtual environments manually.
+```bash
+# 1. Install pipx if you don't have it
+sudo apt install pipx
 
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+# 2. Install SysAgent globally from the repository
+git clone https://github.com/LenaHelo/sysagent.git
+cd sysagent
+pipx install .
+```
+
+**Option 2: Traditional Virtual Environment**
+If you prefer to manage the virtual environment yourself or are developing the tool:
+```bash
+git clone https://github.com/LenaHelo/sysagent.git
+cd sysagent
+python3 -m venv .venv
+source .venv/bin/activate
+pip install .
+```
 
 ### **Configuration**
 1. **Environment Variables**: Create a `.env` file in the root directory:
@@ -74,10 +80,10 @@ It uses an autonomous **ReAct orchestration loop** to:
 To start the interactive diagnostic session, run:
 ```bash
 # Standard mode (silent tool execution)
-python3 -m sysagent.main
+sysagent
 
 # Verbose mode (shows agent's internal reasoning and tool calls)
-python3 -m sysagent.main -v  # or --verbose
+sysagent -v  # or --verbose
 ```
 
 ### Headless Proactive Auditing
@@ -96,10 +102,10 @@ To receive reports in Slack, you need to configure an Incoming Webhook:
 
 ```bash
 # Run a headless audit and print the markdown report to stdout
-python3 -m sysagent.main --cron
+sysagent --cron
 
 # Run a headless audit and send the report to Slack
-python3 -m sysagent.main --cron --notify slack
+sysagent --cron --notify slack
 ```
 
 #### Scheduling with systemd
@@ -117,9 +123,9 @@ To run SysAgent on a schedule (e.g., daily at 8:00 AM), we recommend using **use
 
    [Service]
    Type=oneshot
-   # Replace with the actual absolute path to your cloned repository
-   WorkingDirectory=/absolute/path/to/sysagent
-   ExecStart=/absolute/path/to/sysagent/.venv/bin/python -m sysagent.main --cron --notify slack
+   # Replace with the actual absolute path to the sysagent executable
+   # If installed via pipx, this is usually /home/YOUR_USER/.local/bin/sysagent
+   ExecStart=/home/YOUR_USER/.local/bin/sysagent --cron --notify slack
    ```
 
 3. **Create a Timer File (`~/.config/systemd/user/sysagent.timer`)**:
@@ -163,7 +169,7 @@ To run SysAgent on a schedule (e.g., daily at 8:00 AM), we recommend using **use
 
 ## 🗺️ Roadmap
 - [ ] **Interactive Onboarding**: Automatically prompt for missing API keys and configuration on first boot so users don't have to manually edit `.env` files.
-- [ ] **Packaging & Distribution**: Support for `pip install` to provide a global `sysagent` command and easier environment setup.
+- [x] **Packaging & Distribution**: Support for `pip install` to provide a global `sysagent` command and easier environment setup.
 - [ ] **Advanced System Inspection**: Integration of deeper diagnostic tools (e.g., `perf`, `strace`, or `ebpf`-based tracing) for advanced performance and behavioral analysis.
 - [ ] **Rich Terminal UI**: Move beyond plain text with structured tables, color-coded status panels, and high-scannability diagnostic reports.
 

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sysagent"
+version = "0.1.0"
+description = "AI-Powered Linux Diagnostic Assistant"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "chromadb>=0.4.0",
+    "openai>=1.14.0",
+    "langchain-text-splitters>=0.0.1",
+    "psutil>=5.9.0",
+    "python-dotenv>=1.0.0",
+    "prompt_toolkit>=3.0.0",
+    "docutils>=0.20.0",
+    "requests>=2.31.0"
+]
+
+[project.scripts]
+sysagent = "sysagent.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sysagent*"]
+exclude = ["tests*", "docs*", "scripts*"]

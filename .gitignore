@@ -20,3 +20,5 @@ kernel-source/
 docs/repo_qrcode.png
 docs/linkedin_qrcode.png
 audit_report.md
+build/
+sysagent.egg-info/
