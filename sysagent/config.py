@@ -2,12 +2,14 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
-
 # --- Directory Paths ---
 # Use ~/.config/sysagent for all persistent application data
 USER_HOME = Path.home()
 SYSAGENT_DATA_DIR = USER_HOME / ".config" / "sysagent"
+
+# Load ONLY the global .env file to prevent project-level hijacking
+global_env_path = SYSAGENT_DATA_DIR / ".env"
+load_dotenv(dotenv_path=global_env_path)
 CHROMA_DB_DIR = SYSAGENT_DATA_DIR / "chroma_db"
 MANIFEST_PATH = SYSAGENT_DATA_DIR / "ingestion_manifest.json"
 
@@ -32,10 +34,10 @@ MAN_SECTIONS = ["1", "2", "4", "5", "7", "8"]
 #
 # Phase 3 — Kernel documentation:
 # Path to the Linux kernel Documentation/ directory (RST source files).
-# Set KERNEL_DOCS_PATH in your .env file to enable this ingestion source.
-# Example: KERNEL_DOCS_PATH=/usr/share/doc/linux-doc/Documentation
+# Set SYSAGENT_KERNEL_DOCS_PATH in your global .env file to enable this ingestion source.
+# Example: SYSAGENT_KERNEL_DOCS_PATH=/usr/share/doc/linux-doc/Documentation
 # If unset or the path does not exist, kernel doc ingestion is skipped gracefully.
-_raw_kernel_docs_path = os.getenv("KERNEL_DOCS_PATH", "").strip()
+_raw_kernel_docs_path = os.getenv("SYSAGENT_KERNEL_DOCS_PATH", "").strip()
 KERNEL_DOCS_PATH: Path | None = Path(_raw_kernel_docs_path) if _raw_kernel_docs_path else None
 
 # --- Chunking & Embedding Variables ---
@@ -58,4 +60,4 @@ REACT_MAX_STEPS = 5
 
 # --- Notification Config ---
 # Webhook URL for pushing proactive audit reports to Slack.
-SLACK_WEBHOOK_URL = os.getenv("SLACK_WEBHOOK_URL", "").strip()
+SLACK_WEBHOOK_URL = os.getenv("SYSAGENT_SLACK_WEBHOOK_URL", "").strip()

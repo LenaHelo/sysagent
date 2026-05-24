@@ -15,10 +15,8 @@ Usage:
 import argparse
 import sys
 
-from dotenv import load_dotenv
 from prompt_toolkit import PromptSession
-
-from sysagent.agent.react import REACT_SYSTEM_PROMPT, run_react_loop
+import sysagent.config  # Ensures global .env is loaded on startup
 
 BANNER = """
 ╔════════════════════════════════════════════╗
@@ -32,7 +30,28 @@ BANNER = """
 
 
 def main() -> None:
-    load_dotenv()
+    import os
+    import importlib
+    
+    # 1. Check for the global API key and run the Boot Wizard if missing
+    sysagent_key = os.getenv("SYSAGENT_OPENAI_API_KEY")
+    if not sysagent_key:
+        from sysagent.wizard import run_boot_wizard
+        run_boot_wizard()
+        
+        sysagent_key = os.getenv("SYSAGENT_OPENAI_API_KEY")
+        if not sysagent_key:
+            print("Error: SysAgent requires an OpenAI API Key to run.", file=sys.stderr)
+            sys.exit(1)
+            
+        # Reload config to pick up newly configured variables
+        importlib.reload(sysagent.config)
+
+    # 2. Internal Bridging for third-party libraries
+    os.environ["OPENAI_API_KEY"] = sysagent_key
+
+    # 3. Defer importing react module until environment is configured
+    from sysagent.agent.react import REACT_SYSTEM_PROMPT, run_react_loop
 
     parser = argparse.ArgumentParser(
         description="SysAgent — AI-powered Linux diagnostic assistant."
