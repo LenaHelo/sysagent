@@ -20,7 +20,7 @@ It uses an autonomous **ReAct orchestration loop** to:
 - **Proactive Security Audits (Ubuntu Only)**: Autonomous CVE vulnerability scanning cross-referenced with live OS telemetry to identify unpatched risks using the Ubuntu Security API.
 - **Headless Proactive Auditing**: Schedule SysAgent to run autonomously in the background via systemd and dispatch beautifully formatted diagnostic reports directly to Slack webhooks.
 - **Native Global CLI**: Install seamlessly via `pipx` to run `sysagent` from anywhere on your system, without manually managing Python virtual environments.
-
+- **Interactive Boot Wizard**: Zero-touch onboarding that automatically configures API keys, RAG databases, and background systemd timers on your first run.
 
 ## 🛠️ Tech Stack
 - **Language:** Python 3.10+
@@ -31,50 +31,90 @@ It uses an autonomous **ReAct orchestration loop** to:
 
 ## 🚀 Getting Started
 
-### Prerequisites
-- Linux OS (Debian/Ubuntu family recommended for v1).
-- Python 3.10 or higher.
-- An OpenAI API Key.
+We provide two distinct workflows depending on how you intend to use SysAgent.
 
-### Installation
+### 🧑‍💻 For Users (Recommended)
 
-**Option 1: Global Installation via pipx (Recommended)**
-This is the recommended way to install SysAgent as a globally available terminal command without managing virtual environments manually.
+**1. Global Installation**
+This installs SysAgent as a globally available terminal command using `pipx`, so you can run it from any directory without manually managing virtual environments.
 ```bash
-# 1. Install pipx if you don't have it
 sudo apt install pipx
-
-# 2. Install SysAgent globally from the repository
 git clone https://github.com/LenaHelo/sysagent.git
 cd sysagent
 pipx install .
 ```
 
-**Option 2: Traditional Virtual Environment**
-If you prefer to manage the virtual environment yourself or are developing the tool:
+**2. Zero-Touch Configuration**
+SysAgent features an **Interactive Boot Wizard** that handles configuration on its first run. Simply type `sysagent` in your terminal, and the wizard will guide you through setting your API keys, Slack Webhooks, and RAG configuration. 
+
+*(The configuration is safely stored in a global location `~/.config/sysagent/.env` to ensure the tool works seamlessly everywhere).*
+
+---
+
+### 🛠️ For Developers
+
+If you are developing or modifying SysAgent, you may prefer a local virtual environment and direct environment variable management.
+
+**1. Local Installation**
 ```bash
 git clone https://github.com/LenaHelo/sysagent.git
 cd sysagent
 python3 -m venv .venv
 source .venv/bin/activate
-pip install .
+pip install -e .
 ```
 
-### **Configuration**
-1. **Environment Variables**: Create a `.env` file in the root directory:
-   ```bash
-   touch .env
-   ```
-2. **Setup RAG Sources**:
-   - **Required**: Add your `OPENAI_API_KEY=your_key_here`.
-   - **Optional (Kernel Docs)**: Set `KERNEL_DOCS_PATH` to your documentation folder. 
-     *   **Option 1 (System Package)**: `sudo apt install linux-doc` (the path is usually `/usr/share/doc/linux-doc/Documentation`).
-     *   **Option 2 (Manual Clone)**: Use this if the system package is missing. This command will dynamically fetch the documentation for your currently running kernel version:
-         ```bash
-         KERNEL_VERSION=$(uname -r | cut -d. -f1,2)
-         git clone --depth 1 --branch v${KERNEL_VERSION} --filter=blob:none --sparse https://github.com/torvalds/linux.git kernel-source
-         cd kernel-source && git sparse-checkout set Documentation
-         ```
+**2. Developer Configuration**
+To bypass the interactive boot wizard entirely and avoid touching the global user configuration, you can inject your developer keys directly via the shell before running the app:
+```bash
+export SYSAGENT_OPENAI_API_KEY="sk-your-dev-key"
+sysagent
+```
+*(Note: SysAgent intentionally ignores local `.env` files to prevent configuration hijacking when the tool is executed inside other software projects).*
+
+---
+
+## **⚙️ Integrations & Setup**
+
+All of these features can be configured seamlessly using the **Interactive Boot Wizard** on your first run. If you need to prepare for them, or manage them later, here are the details:
+
+### 1. Kernel Documentation (RAG)
+During the Boot Wizard, SysAgent will ask for the path to your Linux Kernel Documentation. If you don't have it downloaded, you can fetch it using one of two methods:
+
+**Option 1 (System Package):**
+```bash
+sudo apt install linux-doc
+```
+*(The path to provide the wizard is usually `/usr/share/doc/linux-doc/Documentation`)*
+
+**Option 2 (Manual Clone):**
+Use this if the system package is missing. This command dynamically fetches the specific documentation for your currently running kernel version without downloading the entire kernel source tree:
+```bash
+KERNEL_VERSION=$(uname -r | cut -d. -f1,2)
+git clone --depth 1 --branch v${KERNEL_VERSION} --filter=blob:none --sparse https://github.com/torvalds/linux.git kernel-source
+cd kernel-source && git sparse-checkout set Documentation
+```
+*(The path to provide the wizard is the absolute path to this new `kernel-source/Documentation` folder)*
+
+### 2. Slack Webhooks
+To receive proactive audit reports in Slack, you need to configure an Incoming Webhook:
+1. Go to your Slack workspace and open the **App Directory**.
+2. Search for **Incoming WebHooks** and add it to your workspace.
+3. Choose the channel where you want SysAgent to post its reports.
+4. Copy the generated Webhook URL (it starts with `https://hooks.slack.com/services/...`).
+5. Paste this URL into the SysAgent Boot Wizard when prompted!
+
+### 3. Systemd Scheduling
+You do not need to write systemd service or timer files manually! 
+
+During the Boot Wizard, if you provide a Slack Webhook, SysAgent will ask if you want to enable background audits. It will ask for your preferred frequency (daily, weekly, monthly) and time, and then **automatically generate, install, and enable the systemd timers for you**.
+
+*(To ensure the timer runs even when you aren't logged in, run `loginctl enable-linger $USER`)*
+
+To manually disable the timer later, simply run:
+```bash
+systemctl --user disable --now sysagent.timer
+```
 
 ## **💻 Usage**
 To start the interactive diagnostic session, run:
@@ -86,72 +126,14 @@ sysagent
 sysagent -v  # or --verbose
 ```
 
-### Headless Proactive Auditing
-SysAgent can run autonomously in the background to perform scheduled health and security audits. It can forward these reports to external platforms.
-
-#### Setting up a Slack Webhook
-To receive reports in Slack, you need to configure an Incoming Webhook:
-1. Go to your Slack workspace and open the **App Directory**.
-2. Search for **Incoming WebHooks** and add it to your workspace.
-3. Choose the channel where you want SysAgent to post its reports.
-4. Copy the generated Webhook URL (it starts with `https://hooks.slack.com/services/...`).
-5. Open the `.env` file in the SysAgent directory and add your URL:
-   ```env
-   SLACK_WEBHOOK_URL="your_copied_url_here"
-   ```
-
+### Headless Execution
 ```bash
-# Run a headless audit and print the markdown report to stdout
+# Run a headless audit manually and print the report to stdout
 sysagent --cron
 
-# Run a headless audit and send the report to Slack
+# Run a headless audit manually and send the report to Slack
 sysagent --cron --notify slack
 ```
-
-#### Scheduling with systemd
-To run SysAgent on a schedule (e.g., daily at 8:00 AM), we recommend using **user-level systemd timers** for better logging and error handling without requiring root privileges.
-
-1. **Create the systemd user directory** (if it doesn't exist):
-   ```bash
-   mkdir -p ~/.config/systemd/user/
-   ```
-
-2. **Create a Service File (`~/.config/systemd/user/sysagent.service`)**:
-   ```ini
-   [Unit]
-   Description=SysAgent Proactive Audit Service
-
-   [Service]
-   Type=oneshot
-   # Replace with the actual absolute path to the sysagent executable
-   # If installed via pipx, this is usually /home/YOUR_USER/.local/bin/sysagent
-   ExecStart=/home/YOUR_USER/.local/bin/sysagent --cron --notify slack
-   ```
-
-3. **Create a Timer File (`~/.config/systemd/user/sysagent.timer`)**:
-   ```ini
-   [Unit]
-   Description=Run SysAgent Proactive Audit Daily
-
-   [Timer]
-   OnCalendar=*-*-* 08:00:00
-   Persistent=true
-
-   [Install]
-   WantedBy=timers.target
-   ```
-
-4. **Enable and Start the Timer**:
-   ```bash
-   systemctl --user daemon-reload
-   systemctl --user enable --now sysagent.timer
-   ```
-   *(To ensure the timer runs even when you aren't logged in, run `loginctl enable-linger $USER`)*
-
-5. **Disable the Timer** (to stop receiving scheduled reports):
-   ```bash
-   systemctl --user disable --now sysagent.timer
-   ```
 
 ## **📁 Project Structure**
 ```
@@ -168,7 +150,7 @@ To run SysAgent on a schedule (e.g., daily at 8:00 AM), we recommend using **use
 ```
 
 ## 🗺️ Roadmap
-- [ ] **Interactive Onboarding**: Automatically prompt for missing API keys and configuration on first boot so users don't have to manually edit `.env` files.
+- [x] **Interactive Onboarding**: Automatically prompt for missing API keys and configuration on first boot so users don't have to manually edit `.env` files.
 - [x] **Packaging & Distribution**: Support for `pip install` to provide a global `sysagent` command and easier environment setup.
 - [ ] **Advanced System Inspection**: Integration of deeper diagnostic tools (e.g., `perf`, `strace`, or `ebpf`-based tracing) for advanced performance and behavioral analysis.
 - [ ] **Rich Terminal UI**: Move beyond plain text with structured tables, color-coded status panels, and high-scannability diagnostic reports.
