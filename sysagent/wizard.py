@@ -137,7 +137,7 @@ WantedBy=timers.target
                 print("  [!] systemctl command not found. You may need to enable the timer manually.\n")
 
     # 5. Initial Ingestion
-    ingest_choice = prompt("Would you like to build the initial knowledge database (man pages) now? [Y/n]: ").strip().lower()
+    ingest_choice = prompt("Would you like to build the initial knowledge database (man pages and kernel docs) now? [Y/n]: ").strip().lower()
     if ingest_choice in ('', 'y', 'yes'):
         print("\n  [*] Starting initial ingestion...")
         # Temporarily inject the standard OPENAI_API_KEY for the embedder

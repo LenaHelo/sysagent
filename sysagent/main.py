@@ -28,6 +28,37 @@ BANNER = """
 ╚════════════════════════════════════════════╝
 """
 
+import threading
+import time
+
+class Spinner:
+    def __init__(self, message="Thinking..."):
+        self.spinner_chars = "|/-\\"
+        self.message = message
+        self.running = False
+        self.thread = None
+
+    def spin(self):
+        i = 0
+        while self.running:
+            sys.stdout.write(f"\r{self.message} {self.spinner_chars[i % len(self.spinner_chars)]}")
+            sys.stdout.flush()
+            time.sleep(0.1)
+            i += 1
+        sys.stdout.write("\r" + " " * (len(self.message) + 2) + "\r")
+        sys.stdout.flush()
+
+    def __enter__(self):
+        self.running = True
+        self.thread = threading.Thread(target=self.spin)
+        self.thread.daemon = True
+        self.thread.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.running = False
+        if self.thread:
+            self.thread.join()
 
 def main() -> None:
     import os
@@ -153,11 +184,21 @@ def main() -> None:
             sys.exit(0)
 
         print()  # breathing room before the answer
-        answer = run_react_loop(
-            query=user_input,
-            verbose=args.verbose,
-            messages=messages,
-        )
+        
+        if args.verbose:
+            answer = run_react_loop(
+                query=user_input,
+                verbose=args.verbose,
+                messages=messages,
+            )
+        else:
+            with Spinner("SysAgent is analyzing..."):
+                answer = run_react_loop(
+                    query=user_input,
+                    verbose=args.verbose,
+                    messages=messages,
+                )
+                
         print(answer)
         print()  # breathing room after the answer
 
