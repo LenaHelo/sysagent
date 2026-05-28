@@ -38,112 +38,107 @@ Software Engineer
 
 ---
 
-## Elevator Pitch
+## Background Story
 
-SysAgent is an AI-native Linux diagnostic agent that turns raw system telemetry into expert-level insight through natural language — right in your terminal 
 
 ---
 
-## The Problem: Linux Troubleshooting is Tedious
+## What is SysAgent?
+
+SysAgent is an **AI-native Linux diagnostic agent** that turns raw system telemetry into expert-level insight through natural language — right in your terminal.
+
+---
+## The Problem
 
 - **Complex Tooling**: Requires memorizing esoteric flags for tools like `ps`, `top`, `dmesg`, and `journalctl`.
 - **Information Overload**: Raw telemetry provides data, but lacks synthesis and interpretation.
 - **Expertise Dependency**: Junior engineers cannot act independently; senior engineers are interruption-taxed.
 - **Disconnected Context**: Engineers spend 20–40% of diagnostic time reading docs in a browser instead of acting in the terminal.
-
----
-
-## The Solution: SysAgent
-
-SysAgent autonomously gathers live system telemetry and cross-references it with official Linux kernel documentation to give you actionable, context-aware diagnostic advice—all without leaving the command line.
-
-- 🧑‍💻 **Virtual IT Specialist**: Guides the user step-by-step using natural language to solve complex system problems.
-
----
-
-## Core Capabilities
-
-- 🧠 **ReAct Orchestration**: The agent thinks, observes, and acts in a continuous loop until it finds the root cause.
-- 📊 **Live Telemetry**: Executes actual read-only system commands (CPU, memory, logs) to understand the *current* system state.
-- 📚 **Grounded Diagnostics (RAG)**: Retrieves context from an indexed database of official Linux kernel documentation and man pages.
-- 🛡️ **Proactive Security Audits (Ubuntu)**: Autonomous CVE vulnerability scanning cross-referenced with local package states.
-- ⏱️ **Scheduled Reporting**: Headless execution via systemd timers with automated alerts sent to Slack.
-
----
-
-## How it Works: Architecture
-
-1. **User Query**: Engineer asks a natural language question.
-2. **ReAct Loop (LLM)**: SysAgent decides which tools to run using OpenAI.
-3. **OS Layer**: Safely executes read-only data-gathering commands (e.g., `ps aux`).
-4. **Vector DB Retrieval**: Queries a local ChromaDB for relevant kernel docs and man pages.
-5. **Final Output**: Synthesizes the live data and docs into a structured report.
-
----
-
-## Under the Hood: The ReAct Engine
-
-*SysAgent is not a simple chatbot. It uses an autonomous reasoning loop to formulate an execution plan, run system tools, and evaluate the results iteratively until the root cause is found.*
+- **CVE Blind Spots**: Unpatched vulnerabilities persist because the connection between system state and known advisories is never made.
 
 
 ---
 
-## Under the Hood: Safe Telemetry
+## SysAgent Solves This - Key Features
 
-*A major concern with AI agents is security. SysAgent does not execute arbitrary `bash` commands. It is strictly sandboxed to predefined, read-only Python functions that gracefully handle errors.*
+- 🗣️ **Natural Language Interface**: Query your system using plain English instead of memorizing complex tool flags.
+---
+- 🧠 **ReAct Orchestration Loop**: The agent thinks, selects tools, observes results, and iterates autonomously until it finds the root cause.
+---
+- 📊 **Live System Telemetry**: Reads real-time data directly from `/proc`, `/sys`, and `psutil`.
 
-
-
+- 📚 **Grounded RAG Diagnostics**: Answers backed by a locally indexed vector store of kernel docs and man pages.
+---
+- 🛡️ **Proactive CVE Scanning** *(Ubuntu)*: Cross-references your kernel version against the Ubuntu Security API.
+---
+- ⏱️ **Headless Scheduled Auditing**: Runs autonomously via systemd timers and pushes formatted reports to Slack.
 ---
 
-## Demo: SysAgent in Action
+- 🌍 **Run Anywhere** — Functions natively as a global CLI command across your entire system. In addition to Zero-touch onboarding via an interactive boot wizard 
+---
+
+
+## Demo
 
 <!-- Remember: Use an animated GIF so it exports perfectly to PowerPoint! -->
-![SysAgent Demo](demo.gif)
+---
 
-*SysAgent autonomously diagnosing a high-CPU process and citing documentation.*
+## Under the Hood: Flow of Operations
+
+1. **User Query**: Engineer asks a natural language question.
+2. **ReAct Loop Begins**: LLM formulates a diagnostic plan based on the query.
+3. **Live Telemetry**: Agent safely executes read-only tools (e.g., `ps`, `top`) to gather current system state.
+4. **Context Retrieval (RAG)**: Queries local vector DB for relevant kernel docs or security advisories.
+5. **Synthesis**: Synthesizes the live data and docs into a structured, actionable report.
 
 ---
 
-## Project Status: Core Diagnostics
+## Engineering Challenges
 
-SysAgent is an actively evolving open-source project.
+### 1 — Idempotent RAG Ingestion
 
-- **Core ReAct loop** and system telemetry tools.
-- **Vector database integration** for Linux kernel docs & man pages.
-- **Robust context management** and CLI experience.
-- **Proactive Security Audits**: Autonomous CVE vulnerability scans (Ubuntu only).
-
----
-
-## Project Status: Operations & Setup
-
-- **Scheduled Headless Audits**: Automated reporting pipelines with Slack integration.
-- **Native Global CLI**: Easy package distribution via `pipx` for seamless installation.
-- **Interactive Boot Wizard**: Automated onboarding and zero-touch systemd scheduler configuration.
-- **Idempotent RAG Ingestion**: Cost-optimized, hash-based differential syncing to minimize embedding API costs.
+A naive RAG pipeline re-embeds the entire document corpus on every run — slow startup and wasted OpenAI API costs on unchanged files.
+<!-- 
+SPEAKER NOTES:
+Implemented a hash-based differential sync. Each document is fingerprinted before ingestion. On subsequent runs, only documents whose content hash has changed are re-embedded. Unchanged documents are skipped entirely.
+Result: A corpus of ~5,000 files ingests in seconds on repeat runs, with near-zero API cost. 
+-->
 
 ---
 
-## Roadmap & Next Steps
+## Engineering Challenges
 
-**🚧 In Progress / Next Up:**
-- **Advanced System Inspection**: Integration of deep diagnostic tools (`perf`, `ebpf`).
-- **Rich Terminal UI**: Structured tables and color-coded status panels.
+### 2 — LLM Tool Sandboxing
+
+Giving an LLM root access to a `run_bash()` tool would be catastrophic — a hallucination could wipe the filesystem.
+
+
+<!-- 
+SPEAKER NOTES:
+**Design Decision:** The agent is never given a generic shell tool. Instead, it can only call a strict whitelist of hardcoded, read-only Python functions . These functions are physically incapable of writing, deleting, or modifying system state — regardless of what the LLM instructs.
+SysAgent can have deep system visibility while remaining provably safe by design. 
+-->
+
+---
+
+## Summary & What's Next
+
+### 🔭 Leveling Up:
+- **Multi-Machine Support**: SSH-based remote host diagnostics from a single control plane.
+- **Broader Distro Support**: Extending beyond Debian/Ubuntu to Fedora, Arch, and other Linux distributions.
+- **Local LLM Support**: Running fully offline with a local model (e.g. via Ollama) for complete privacy, no cloud dependency.
+
+- **Cross-Platform Support**: Extending beyond Linux to macOS and other UNIX-like systems.
 
 ---
 
 ## Thank You
 
-**SysAgent: AI-Powered Linux Diagnostic Assistant**
 
-*Code & Documentation:*
-[github.com/LenaHelo/sysagent](https://github.com/LenaHelo/sysagent)
 
 | GitHub Repository | Connect on LinkedIn |
 | :---: | :---: |
 | ![w:200 GitHub Repo](repo_qrcode.png) | ![w:200 LinkedIn Profile](linkedin_qrcode.png) |
 
-*Questions?*
 
 ---
