@@ -1,0 +1,32 @@
+Hello Everyone, 
+
+My is Lena Helo, I am excited to be here! I've been with placeIL for about 6 months now.
+I am a CS graduate, I pursued my bachelor's in the Technion. 
+Thoughout my studies, I has a PC with windows os, that said, most of our homework and development required linux
+us to use a Linux virtual machine. So I thought it was time to finally make the jump and fully switch to Linux. 
+However, as you can imagine, the transition wasn't the smoothest, and I quickly realized that I had a lot to learn. 
+Navigating through the system, and troubleshooting issues as they arose, could be very time consuming and frustrating.
+
+That was until I developed sysagent, and it changed my linux experience entirely.
+
+"Sysagent elevator pitch"
+
+Data availability was never the problem linux users, synthesis was.
+Before sysagent, a junior engineer had to either remember complex linux commands and their flags, or search the
+web for the correct command to run. they would have to run these commands to get basic information about their system, 
+and then cross-reference that information with what ever they found relevant on the web to solve an issue.
+They also might have needed to consult with a senior engineer to get the right information, which could take time and resources.
+Most importantly, they would spend alot of their time reading on a web browser, rather than taking action on their terminal.
+
+That's exactly why I built SysAgent. Let’s take a look at the core features that make bridging the gap possible.
+
+1. Natural language interface: Instead of memorizing arcane commands and flags, you simply describe what you want to do in plain English.
+2. Sysagent does not hallucinate or depend on its pre-trained data. Instead, it reads your system's real-time state, 
+   and cross-references that with a locally  indexed vector store of man pages and kernel docs.
+3. CVE Scanning: sysagent can also help you keep your system secure by scanning for CVEs, and recommend actions to take.
+4. Headless Scheduled Auditing: Sysagent can also run autonomously to audit your system at set intervals. 
+                                it will send detailed reports to a slack channel of your choosing.
+5. All of that can be accesses locally from anywhere on your system!
+
+**DEMO**
+
